@@ -103,7 +103,7 @@ async function main() {
   const tarball = path.join(packDir, filename.trim());
   if (!fs.existsSync(tarball)) throw new Error("npm pack did not create tarball: " + tarball);
 
-  run("npm", ["install", "--offline", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", installDir, tarball], {
+  run("npm", ["install", "--ignore-scripts", "--no-audit", "--no-fund", "--prefix", installDir, tarball], {
     env: { npm_config_cache: path.join(ROOT, ".npm-cache") }
   });
 

@@ -4,6 +4,28 @@ Tracebase is a local-first trace collector and dashboard for coding-agent work. 
 
 ## System Map
 
+```mermaid
+flowchart LR
+  codex["Codex JSONL<br/>~/.codex/sessions"] --> import["Import / Watch"]
+  claude["Claude JSONL<br/>~/.claude/projects"] --> import
+  hooks["Claude hooks"] --> intake["Local intake"]
+  wrappers["tcodex / tclaude"] --> intake
+  http["POST /api/events<br/>POST /api/spans"] --> intake
+
+  import --> normalize["Normalize + redact"]
+  intake --> normalize
+  normalize --> raw["Encrypted raw blobs<br/>AES-256-GCM"]
+  normalize --> logs["Append-only JSONL logs"]
+  logs --> index["SQLite + FTS index"]
+  raw --> export["Export bundles"]
+  index --> dashboard["Local dashboard<br/>127.0.0.1"]
+  index --> cli["CLI search / health / diff"]
+  index --> mcp["Read-only MCP"]
+  index --> llmobs["Trace/span + LLMObs views"]
+  index --> intelligence["Annotations, judges,<br/>datasets, rules, alerts"]
+  dashboard --> export
+```
+
 | Layer | Responsibility | Durable state |
 | --- | --- | --- |
 | Ingestion | Import Codex/Claude JSONL, poll transcript folders, accept explicit live intake, record wrapper metadata | `index.jsonl`, `sessions.jsonl`, encrypted `blobs/*.json` |
