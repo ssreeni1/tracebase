@@ -51,6 +51,15 @@ function auditPackage() {
   if (pkg.license !== "MIT") fail("package license must be MIT");
   if (pkg.main !== "index.js") fail("package must expose the documented CommonJS API at index.js");
   if (!pkg.engines || pkg.engines.node !== ">=24") fail("package must require Node >=24");
+  if (!pkg.repository || pkg.repository.url !== "git+https://github.com/ssreeni1/tracebase.git") {
+    fail("package repository must point at the public Tracebase repository");
+  }
+  if (!pkg.bugs || pkg.bugs.url !== "https://github.com/ssreeni1/tracebase/issues") {
+    fail("package bugs URL must point at public GitHub issues");
+  }
+  if (pkg.homepage !== "https://github.com/ssreeni1/tracebase#readme") {
+    fail("package homepage must point at the public README");
+  }
   for (const bin of ["tracebase", "traces", "tcodex", "tclaude"]) {
     const rel = pkg.bin && pkg.bin[bin];
     if (!rel) {
@@ -69,7 +78,7 @@ function auditPackage() {
   for (const file of ["README.md", "SECURITY.md", "ARCHITECTURE.md", "CONTRIBUTING.md", "TESTING.md", "LICENSE"]) {
     if (!exists(file)) fail(`missing required release document: ${file}`);
   }
-  for (const entry of ["index.js", "bin/", "dist/", "src/", "templates/"]) {
+  for (const entry of ["TESTING.md", "index.js", "bin/", "dist/", "src/", "templates/"]) {
     if (!pkg.files || !pkg.files.includes(entry)) fail(`package files missing ${entry}`);
   }
   const apiSource = read("index.js");

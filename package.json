@@ -4,6 +4,14 @@
   "private": false,
   "description": "Secure local trace capture, search, visualization, summaries, and exports for Codex and Claude agents.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ssreeni1/tracebase.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ssreeni1/tracebase/issues"
+  },
+  "homepage": "https://github.com/ssreeni1/tracebase#readme",
   "keywords": [
     "ai",
     "agents",
@@ -45,6 +53,7 @@
     "NOTICE.md",
     "README.md",
     "SECURITY.md",
+    "TESTING.md",
     "index.js",
     "bin/",
     "dist/",
