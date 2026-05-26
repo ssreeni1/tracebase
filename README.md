@@ -4,6 +4,8 @@ Secure, local-first trace capture and inspection for Codex and Claude agent sess
 
 Tracebase imports local agent transcripts, encrypts raw events at rest, builds a searchable local index, and serves a localhost dashboard for debugging what happened in an agent run. It is designed for developer workstations: no network interception, no hidden reasoning capture, and no remote service required.
 
+Most LLM observability tools start from application SDKs, hosted gateways, or OpenTelemetry pipelines. Tracebase starts from the local coding-agent logs developers already have, then turns those runs into auditable engineering traces: what happened, what failed, what recovered, what got expensive, and what is safe to share.
+
 ## At A Glance
 
 | Capability | What You Get |
@@ -15,6 +17,21 @@ Tracebase imports local agent transcripts, encrypts raw events at rest, builds a
 | Exports | Redacted zip bundles by default; raw exports require explicit local intent. |
 | Run intelligence | Analyze sessions for failures, resteers, context waste, repeated commands, redactions, token/cost rollups, and run scorecards. |
 | Local integrations | CLI, CommonJS API, MCP, bootstrap instructions, shell wrappers, and launchd watcher support. |
+
+## What You Can Answer
+
+Tracebase makes agent work inspectable after the fact. Use it to answer:
+
+| Question | Tracebase Signal |
+| --- | --- |
+| Did the agent actually run tests? | Tool commands, exit status, test output summaries, and session scorecards. |
+| Where did the run get stuck? | Failure, loop, resteer, recovery, repeated-command, and context-waste annotations. |
+| What did this run cost? | Model, token, cache, reasoning, and estimated USD rollups when transcripts expose usage. |
+| Which files or tools mattered? | Structured tool metadata, touched-file hints, canonical spans, and searchable events. |
+| Is this safe to share? | Redacted exports, incident packets, redaction counts, and explicit raw-export gates. |
+| Did one run improve on another? | `run-compare` quality, failure, waste, token, cost, and risk deltas. |
+
+Context-waste detection is intentionally practical rather than mystical: it catches repeated searches, repeated commands, large outputs, and other patterns that burn context without clearly moving the task forward. Some expensive actions are still necessary, such as real UI automation or final release logs; the scorecard is meant to make that tradeoff visible.
 
 ## Install
 
@@ -176,6 +193,7 @@ For the full local checklist, see [TESTING.md](TESTING.md).
 | `npm run test:stress` | Concurrent write and index rebuild stress test. |
 | `npm run test:ui` | Build dashboard and smoke served UI/API. |
 | `npm run test:e2e-local` | Fixture-backed dashboard/export/intake E2E. |
+| `npm run test:e2e-release` | Release-grade E2E for privacy, MCP, exports, comparison, intake, and rendered UI. |
 | `npm run test:package` | `npm pack --dry-run`. |
 | `npm run test:install` | Install the packed package in a temp project and verify CLI/API behavior. |
 
