@@ -13,6 +13,7 @@ Tracebase imports local agent transcripts, encrypts raw events at rest, builds a
 | Dashboard | Browse sessions, events, canonical traces/spans, summaries, and exports at `127.0.0.1`. |
 | Live intake | Opt-in local HTTP intake for custom events and Datadog LLMObs-style spans. |
 | Exports | Redacted zip bundles by default; raw exports require explicit local intent. |
+| Run intelligence | Analyze sessions for failures, resteers, context waste, repeated commands, redactions, token/cost rollups, and run scorecards. |
 | Local integrations | CLI, CommonJS API, MCP, bootstrap instructions, shell wrappers, and launchd watcher support. |
 
 ## Install
@@ -80,6 +81,9 @@ Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage enc
 | Export a redacted bundle | `tracebase export --session-id ID --out trace.zip` |
 | Pipe an export intentionally | `tracebase export --session-id ID --stdout > trace.zip` |
 | Export raw local data | `tracebase export --session-id ID --raw --out trace-raw.zip` |
+| Export a safe incident packet | `tracebase export --session-id ID --incident --out trace-incident.zip` |
+| Inspect token/cost rollups | `tracebase analyze` then `tracebase costs --session-id ID` |
+| Compare analyzed runs | `tracebase run-compare --base-session-id A --target-session-id B` |
 | Generate a local summary | `tracebase summarize --session-id ID --runner codex` |
 | Start MCP | `tracebase mcp` |
 
@@ -89,7 +93,7 @@ Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage enc
 | --- | --- |
 | Setup | `init`, `bootstrap`, `install-instructions`, `shell-init`, `doctor` |
 | Capture | `import`, `import-file`, `watch`, `watch-install`, `watch-status`, `watch-uninstall`, `hook`, `install-claude-hooks` |
-| Inspect | `stats`, `health`, `recent`, `search`, `show`, `decision-log`, `trace-diff`, `traces-list`, `spans` |
+| Inspect | `stats`, `health`, `recent`, `search`, `show`, `decision-log`, `trace-diff`, `run-compare`, `traces-list`, `spans`, `costs` |
 | Dashboard/API | `serve`, `agent` |
 | Export/summary | `export`, `summarize` |
 | Observability | `analyze`, `llmobs-spans`, `llmobs-trace`, `net-snapshot` |
@@ -119,6 +123,9 @@ Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage enc
 | `GET /api/llmobs/traces`, `GET /api/llmobs/spans` | Datadog LLMObs-compatible envelopes. |
 | `POST /api/events`, `POST /api/spans`, `POST /api/intake` | Opt-in live intake. |
 | `GET /api/export` | Redacted or explicitly raw zip export. |
+| `GET /api/costs`, `GET /api/session-metrics` | Analyzed token/cost and run scorecard rollups. |
+| `GET /api/trace-diff` | Compare a session source transcript against indexed rows. |
+| `GET /api/run-compare` | Compare analyzed scorecards for two sessions. |
 | `GET/POST /api/summaries/session/:id` | Cached or generated local session summaries. |
 
 State-changing browser requests reject `Origin` headers that do not exactly match the Tracebase server origin. CLI and curl requests without an `Origin` header remain supported.

@@ -7,6 +7,8 @@ const { TraceStore } = require("./storage");
 const { buildDecisionLog } = require("./decision-log");
 const { listLlmObsSpans, listLlmObsTraces, llmObsTraceFromCanonical } = require("./llmobs");
 const { buildExportZip } = require("./export");
+const { diffSession } = require("./trace-diff");
+const { buildRunComparison } = require("./run-compare");
 const { availableSummaryRunners, latestSummary, listSummaries, summarizeSessionAsync } = require("./summaries");
 
 function securityHeaders(extra = {}) {
@@ -348,7 +350,8 @@ function createServer(options = {}) {
       }
       buildExportZip(store, {
         ...queryOptions(url),
-        raw
+        raw,
+        incident: url.searchParams.get("incident") === "1" || url.searchParams.get("incident") === "true"
       }).then((bundle) => sendBuffer(res, bundle.buffer, {
         contentType: bundle.contentType,
         filename: bundle.filename
@@ -364,6 +367,41 @@ function createServer(options = {}) {
     }
     if (url.pathname === "/api/session-metrics") {
       return sendJson(res, store.listSessionMetrics({ limit: queryLimit(url, 1000) }));
+    }
+    if (url.pathname === "/api/costs") {
+      const sessionId = url.searchParams.get("sessionId") || null;
+      const rows = store.listSessionMetrics({ limit: queryLimit(url, 10000) })
+        .filter((row) => !sessionId || row.id === sessionId);
+      return sendJson(res, {
+        sessions: rows,
+        totals: rows.reduce((acc, row) => {
+          acc.inputTokens += Number(row.inputTokens || 0);
+          acc.outputTokens += Number(row.outputTokens || 0);
+          acc.totalTokens += Number(row.totalTokens || 0);
+          acc.estimatedCostUsd += Number(row.estimatedCostUsd || 0);
+          return acc;
+        }, { inputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedCostUsd: 0 })
+      });
+    }
+    if (url.pathname === "/api/trace-diff") {
+      const sessionId = url.searchParams.get("sessionId");
+      if (!sessionId) return sendJson(res, { error: "sessionId required" }, 400);
+      try {
+        return sendJson(res, diffSession(store, sessionId));
+      } catch (error) {
+        return sendJson(res, { error: error.message }, 404);
+      }
+    }
+    if (url.pathname === "/api/run-compare") {
+      try {
+        return sendJson(res, buildRunComparison(
+          store,
+          url.searchParams.get("baseSessionId"),
+          url.searchParams.get("targetSessionId")
+        ));
+      } catch (error) {
+        return sendJson(res, { error: error.message }, 400);
+      }
     }
     if (url.pathname === "/api/sessions") {
       return sendJson(res, store.listSessions(queryOptions(url)));

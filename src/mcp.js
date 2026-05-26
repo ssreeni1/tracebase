@@ -1,6 +1,7 @@
 "use strict";
 
 const { TraceStore } = require("./storage");
+const { buildRunComparison } = require("./run-compare");
 
 const JSONRPC = "2.0";
 
@@ -44,7 +45,18 @@ const READ_TOOLS = [
     sessionId: { type: "string" },
     spanType: { type: "string" },
     limit: { type: "number" }
-  })
+  }),
+  tool("session_scorecard", "Return analyzed scorecard and diagnostics for a session.", {
+    sessionId: { type: "string" }
+  }, ["sessionId"]),
+  tool("costs", "Return analyzed token and cost rollups.", {
+    sessionId: { type: "string" },
+    limit: { type: "number" }
+  }),
+  tool("run_compare", "Compare analyzed scorecards for two sessions.", {
+    baseSessionId: { type: "string" },
+    targetSessionId: { type: "string" }
+  }, ["baseSessionId", "targetSessionId"])
 ];
 
 const WRITE_TOOLS = [];
@@ -83,6 +95,28 @@ function callTool(store, name, args = {}) {
       return store.listTraces(args);
     case "list_spans":
       return store.listSpans(args);
+    case "session_scorecard": {
+      const metrics = store.listSessionMetrics({ limit: 10000 }).find((row) => row.id === args.sessionId) || null;
+      return {
+        metrics,
+        annotations: store.listAnnotations({ sessionId: args.sessionId, limit: 1000 })
+      };
+    }
+    case "costs": {
+      const rows = store.listSessionMetrics({ limit: args.limit || 10000 }).filter((row) => !args.sessionId || row.id === args.sessionId);
+      return {
+        sessions: rows,
+        totals: rows.reduce((acc, row) => {
+          acc.inputTokens += Number(row.inputTokens || 0);
+          acc.outputTokens += Number(row.outputTokens || 0);
+          acc.totalTokens += Number(row.totalTokens || 0);
+          acc.estimatedCostUsd += Number(row.estimatedCostUsd || 0);
+          return acc;
+        }, { inputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedCostUsd: 0 })
+      };
+    }
+    case "run_compare":
+      return buildRunComparison(store, args.baseSessionId, args.targetSessionId);
     default:
       throw new Error(`Unknown MCP tool: ${name}`);
   }

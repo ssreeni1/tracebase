@@ -9,6 +9,31 @@ const { compactText } = require("./redact");
 const sqlite = require("./sqlite-index");
 const { normalizeEvent } = require("./normalize");
 const { llmObsSpanFromInput, traceFromSpan } = require("./llmobs");
+const { extractStructured } = require("./structured");
+
+function safeStructured(input, redactionCount = 0) {
+  const structured = { ...(input || {}) };
+  let structuredRedactions = 0;
+  for (const key of ["command", "filePath"]) {
+    if (structured[key] != null) {
+      const compacted = compactText(String(structured[key]), key === "command" ? 240 : 500);
+      structured[key] = compacted.text;
+      structuredRedactions += compacted.hits.length;
+    }
+  }
+  if (Array.isArray(structured.filesTouched)) {
+    structured.filesTouched = structured.filesTouched.map((item) => {
+      const compacted = compactText(String(item), 500);
+      structuredRedactions += compacted.hits.length;
+      return compacted.text;
+    }).slice(0, 50);
+  }
+  for (const key of ["inputChars", "outputChars"]) {
+    if (structured[key] != null) structured[key] = Number(structured[key]);
+  }
+  structured.redactionCount = redactionCount + structuredRedactions;
+  return structured;
+}
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -133,6 +158,8 @@ class TraceStore {
     const blobId = this.putBlob(payload);
     const searchable = compactText(event.searchText || event.summary || payload);
     const summary = compactText(event.summary || searchable.text.slice(0, 240), 500);
+    const redactions = [...searchable.hits, ...summary.hits];
+    const baseStructured = event.structured || extractStructured(payload, event);
     const row = {
       id: event.id || sha256(JSON.stringify([event.provider, event.sourcePath, event.offset, payload])),
       taskId: event.taskId || event.sessionId,
@@ -146,7 +173,8 @@ class TraceStore {
       timestamp: event.timestamp || new Date().toISOString(),
       summary: summary.text.slice(0, 240),
       searchText: searchable.text,
-      redactions: [...searchable.hits, ...summary.hits],
+      redactions,
+      structured: safeStructured(baseStructured, redactions.length),
       blobId
     };
     this.appendJsonl(this.indexPath, row);
@@ -317,6 +345,7 @@ class TraceStore {
         const normalized = normalizeEvent(row.provider, row.sourcePath || "rehydrated", row.offset, raw);
         const searchable = compactText(normalized.searchText || normalized.summary || raw);
         const summary = compactText(normalized.summary || row.summary || searchable.text.slice(0, 240), 500);
+        const redactions = [...searchable.hits, ...summary.hits];
         return {
           ...row,
           taskId: normalized.taskId,
@@ -328,7 +357,8 @@ class TraceStore {
           timestamp: raw && raw.timestamp ? normalized.timestamp : row.timestamp,
           summary: summary.text.slice(0, 240),
           searchText: searchable.text,
-          redactions: [...searchable.hits, ...summary.hits],
+          redactions,
+          structured: safeStructured(normalized.structured || extractStructured(raw, normalized), redactions.length),
           blobId: row.blobId
         };
       } catch {

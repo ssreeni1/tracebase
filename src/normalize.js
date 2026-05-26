@@ -2,6 +2,7 @@
 
 const path = require("node:path");
 const crypto = require("node:crypto");
+const { extractStructured } = require("./structured");
 
 function sha256(value) {
   return crypto.createHash("sha256").update(value).digest("hex");
@@ -115,7 +116,7 @@ function normalizeEvent(provider, sourcePath, offset, raw) {
     tool_response: raw.tool_response,
     error: raw.error
   };
-  return {
+  const base = {
     id: sha256(JSON.stringify([provider, sourcePath, offset, raw.uuid || raw.id || raw.session_id || raw.timestamp, raw])),
     provider,
     sourcePath,
@@ -129,6 +130,10 @@ function normalizeEvent(provider, sourcePath, offset, raw) {
     summary: summarize(raw),
     searchText: searchPayload,
     raw
+  };
+  return {
+    ...base,
+    structured: extractStructured(raw, base)
   };
 }
 

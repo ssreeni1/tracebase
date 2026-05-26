@@ -465,7 +465,7 @@ input:focus, select:focus, button:focus-visible {
   margin-bottom: 12px;
 }
 
-.summary, .trace, .events {
+.summary, .trace, .events, .diagnostics {
   background: var(--surface-strong);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -475,6 +475,97 @@ input:focus, select:focus, button:focus-visible {
 }
 
 .summary, .trace { padding: 13px; }
+
+.scorecard {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.scorecard div {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+  padding: 11px;
+  box-shadow: var(--shadow);
+}
+
+.scorecard strong {
+  display: block;
+  color: var(--accent-ink);
+  font-family: "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+  font-size: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scorecard span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 800;
+  font-family: "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+}
+
+.diagnostics { padding: 13px; }
+.diagnostics h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.diagnostics dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.compareSelect {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 750;
+  font-family: "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+}
+
+.diagnostics dl div, .annotationList div {
+  display: grid;
+  grid-template-columns: 142px minmax(0, 1fr);
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px;
+  background: var(--surface-subtle);
+}
+
+.diagnostics dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.diagnostics dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.annotationList {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+}
+
+.annotationList b { color: var(--accent); }
+.annotationList span { color: var(--ink-soft); overflow-wrap: anywhere; }
 
 h2 {
   margin: 0 0 10px;
@@ -545,7 +636,7 @@ pre {
 .events pre { max-height: 190px; background: var(--event-pre-bg); }
 
 @media (max-width: 980px) {
-  .topbar, .toolbar, .grid, .content { grid-template-columns: 1fr; }
+  .topbar, .toolbar, .grid, .content, .scorecard { grid-template-columns: 1fr; }
   .topbar {
     display: flex;
     flex-wrap: wrap;

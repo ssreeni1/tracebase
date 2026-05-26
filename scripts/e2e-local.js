@@ -7,6 +7,7 @@ const path = require("node:path");
 const { TraceStore } = require("../src/storage");
 const { importJsonlFile } = require("../src/importers");
 const { createServer } = require("../src/server");
+const { analyzeStore } = require("../src/analyze");
 
 async function listen(server) {
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -39,6 +40,7 @@ async function main() {
   const seen = store.seenEventIds();
   importJsonlFile(store, "claude", path.join(root, "test", "fixtures", "claude.jsonl"), seen);
   importJsonlFile(store, "codex", path.join(root, "test", "fixtures", "codex.jsonl"), seen);
+  analyzeStore(store, { sessionId: "fixture-codex" });
 
   const server = createServer({ store });
   const origin = await listen(server);
@@ -46,7 +48,7 @@ async function main() {
     const health = await json(`${origin}/api/health`);
     assert.equal(health.response.status, 200);
     assert.equal(health.body.intakeEnabled, false);
-    assert.equal(health.body.eventCount, 7);
+    assert.equal(health.body.eventCount, 8);
     assert.equal(health.body.sessionCount, 2);
 
     const deepLink = await fetch(`${origin}/?q=vite&provider=claude&cwd=${encodeURIComponent("/tmp/project")}&sort=time&order=desc`);
@@ -70,6 +72,18 @@ async function main() {
     assert.equal(runners.body.runners.some((runner) => runner.runner === "codex"), true);
     assert.equal(JSON.stringify(runners.body).includes("\"path\""), false);
     assert.equal(JSON.stringify(runners.body).includes("\"command\""), false);
+
+    const metrics = await json(`${origin}/api/session-metrics?limit=10`);
+    assert.equal(metrics.response.status, 200);
+    assert.equal(metrics.body.some((row) => row.id === "fixture-codex" && row.totalTokens === 1300), true);
+    const costs = await json(`${origin}/api/costs?sessionId=fixture-codex`);
+    assert.equal(costs.response.status, 200);
+    assert.equal(costs.body.totals.totalTokens, 1300);
+    const diff = await json(`${origin}/api/trace-diff?sessionId=fixture-claude`);
+    assert.equal(diff.response.status, 200);
+    assert.equal(diff.body.complete, true);
+    const compareMissing = await json(`${origin}/api/run-compare?baseSessionId=fixture-codex&targetSessionId=fixture-claude`);
+    assert.equal(compareMissing.response.status, 400);
 
     const blockedIntake = await json(`${origin}/api/events`, {
       method: "POST",

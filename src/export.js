@@ -46,13 +46,17 @@ function rowsForExport(store, options = {}) {
   const traces = [];
   const spans = [];
   const summaries = [];
+  const annotations = [];
+  const metrics = [];
   for (const sessionId of sessionIds) {
     traces.push(...store.listTraces({ sessionId, limit: 100 }));
     spans.push(...store.listSpans({ sessionId, limit: 50000 }));
+    annotations.push(...store.listAnnotations({ sessionId, limit: 10000 }));
+    metrics.push(...store.listSessionMetrics({ limit: 10000 }).filter((row) => row.id === sessionId));
     const summary = latestSummary({ traceHome: store.home, sessionId });
     if (summary) summaries.push(summary);
   }
-  return { sessions, events, traces, spans, summaries };
+  return { sessions, events, traces, spans, summaries, annotations, metrics };
 }
 
 async function buildExportZip(store, options = {}) {
@@ -77,7 +81,9 @@ async function buildExportZip(store, options = {}) {
       events: rows.events.length,
       traces: rows.traces.length,
       spans: rows.spans.length,
-      summaries: rows.summaries.length
+      summaries: rows.summaries.length,
+      annotations: rows.annotations.length,
+      metrics: rows.metrics.length
     },
     privacy: {
       defaultRedacted: true,
@@ -90,7 +96,17 @@ async function buildExportZip(store, options = {}) {
   zip.file("events.jsonl", asJsonl(rows.events));
   zip.file("traces.jsonl", asJsonl(rows.traces));
   zip.file("spans.jsonl", asJsonl(rows.spans));
+  zip.file("session_metrics.jsonl", asJsonl(rows.metrics));
+  zip.file("annotations.jsonl", asJsonl(rows.annotations));
   zip.file("summaries.md", rows.summaries.map((row) => `# ${row.sessionId}\n\n${row.summary}\n`).join("\n---\n\n"));
+  if (options.incident) {
+    zip.file("incident.json", JSON.stringify({
+      generatedAt: manifest.generatedAt,
+      sessions: rows.metrics,
+      diagnostics: rows.annotations,
+      privacy: manifest.privacy
+    }, null, 2) + "\n");
+  }
   if (options.raw) {
     const rawRows = rows.events.map((event) => ({
       eventId: event.id,

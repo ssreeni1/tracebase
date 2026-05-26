@@ -18,6 +18,7 @@ const { listLlmObsSpans, llmObsTraceFromCanonical } = require("./llmobs");
 const { redactText } = require("./redact");
 const { bootstrapText, installInstructions } = require("./bootstrap");
 const { buildExportZip } = require("./export");
+const { buildRunComparison } = require("./run-compare");
 const { availableSummaryRunners, latestSummary, listSummaries, summarizeSession } = require("./summaries");
 const { wrapperDiagnostics } = require("./wrap");
 
@@ -37,6 +38,7 @@ Commands:
   watch-uninstall       Remove persistent watcher
   index                 Rebuild SQLite/FTS query index from JSONL logs
   analyze               Annotate sessions for failures, resteers, loops, recoveries
+  costs                 Print token/cost rollups from analyzed sessions
   stats                 Print trace store metrics
   health                Print capture health and known coverage limits
   recent                Print recent meaningful events as JSONL
@@ -44,6 +46,7 @@ Commands:
   self-trace-prompt     Print opt-in self-tracing instructions
   self-trace-record     Read self-trace JSON from stdin and store it
   trace-diff            Compare source transcript events against indexed rows
+  run-compare           Compare analyzed scorecards for two sessions
   traces-list           Print canonical trace records as JSONL
   spans                 Print canonical spans for --trace-id or --session-id
   llmobs-spans          Print Datadog LLMObs-compatible spans as JSONL
@@ -279,6 +282,25 @@ async function main(args) {
     process.stdout.write(JSON.stringify(store.stats({ deep: args.includes("--deep") }), null, 2) + "\n");
     return;
   }
+  if (command === "costs") {
+    const store = new TraceStore();
+    store.init();
+    const sessionId = readOption(args, "--session-id");
+    const rows = store.listSessionMetrics({ limit: readOption(args, "--limit") || 10000 })
+      .filter((row) => !sessionId || row.id === sessionId);
+    const totals = rows.reduce((acc, row) => {
+      acc.inputTokens += Number(row.inputTokens || 0);
+      acc.outputTokens += Number(row.outputTokens || 0);
+      acc.cacheReadTokens += Number(row.cacheReadTokens || 0);
+      acc.cacheWriteTokens += Number(row.cacheWriteTokens || 0);
+      acc.reasoningTokens += Number(row.reasoningTokens || 0);
+      acc.totalTokens += Number(row.totalTokens || 0);
+      acc.estimatedCostUsd += Number(row.estimatedCostUsd || 0);
+      return acc;
+    }, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 0, estimatedCostUsd: 0 });
+    process.stdout.write(JSON.stringify({ sessions: rows, totals }, null, 2) + "\n");
+    return;
+  }
   if (command === "health") {
     const store = new TraceStore();
     store.init();
@@ -358,7 +380,8 @@ async function main(args) {
       q: readOption(args, "--query") || readOption(args, "--q"),
       cwd: readOption(args, "--cwd"),
       type: readOption(args, "--type"),
-      raw: args.includes("--raw")
+      raw: args.includes("--raw"),
+      incident: args.includes("--incident")
     });
     const out = readOption(args, "--out");
     if (out) {
@@ -411,6 +434,13 @@ async function main(args) {
     const sessionId = readOption(args, "--session-id");
     if (!file && !sessionId) throw new Error("trace-diff requires --file PATH or --session-id ID.");
     const result = file ? diffSourceFile(store, path.resolve(file)) : diffSession(store, sessionId);
+    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+    return;
+  }
+  if (command === "run-compare") {
+    const store = new TraceStore();
+    store.init();
+    const result = buildRunComparison(store, readOption(args, "--base-session-id"), readOption(args, "--target-session-id"));
     process.stdout.write(JSON.stringify(result, null, 2) + "\n");
     return;
   }

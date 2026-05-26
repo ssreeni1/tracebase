@@ -85,6 +85,11 @@ async function main() {
       "was not found on this machine",
       "Export filtered",
       "Export session",
+      "Safe packet",
+      "Run Intelligence",
+      "Coverage & Diagnostics",
+      "Token delta",
+      "est. cost",
       "Search sessions, prompts, tools, files",
       "unlock raw export"
     ]) {
@@ -118,6 +123,13 @@ async function main() {
     assert.equal(redactedExport.headers.get("content-disposition").includes("export-"), true);
     const rawExportWithoutHeader = await fetch(`${origin}/api/export?provider=claude&q=vite&raw=1`);
     assert.equal(rawExportWithoutHeader.status, 403);
+    const costs = await fetch(`${origin}/api/costs?sessionId=fixture-codex`).then((r) => r.json());
+    assert.equal(costs.sessions.length, 1);
+    assert.equal(Object.hasOwn(costs.totals, "totalTokens"), true);
+    const traceDiff = await fetch(`${origin}/api/trace-diff?sessionId=fixture-claude`).then((r) => r.json());
+    assert.equal(traceDiff.complete, true);
+    const missingTraceDiff = await fetch(`${origin}/api/trace-diff`);
+    assert.equal(missingTraceDiff.status, 400);
     const summaryRunners = await fetch(`${origin}/api/summary-runners`).then((r) => r.json());
     assert.equal(summaryRunners.runners.some((runner) => runner.runner === "codex"), true);
     assert.equal(summaryRunners.runners.some((runner) => runner.runner === "claude"), true);

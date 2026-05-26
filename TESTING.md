@@ -27,6 +27,7 @@ export TRACE_HOME="$(mktemp -d)"
 | `npm run test:stress` | Storage/index edits | Concurrent writes, rebuilds, count/search consistency. |
 | `npm run test:ui` | Dashboard edits | Production UI build plus served UI/API smoke. |
 | `npm run test:e2e-local` | Workflow edits | Fixture-backed dashboard, export, summary-runner metadata, intake checks. |
+| `npm run test:e2e-release` | OSS release | End-to-end CLI/API/MCP/export/privacy/live-intake/rendered-dashboard/package smoke. |
 | `npm run test:package` | Packaging edits | `npm pack --dry-run` contents. |
 | `npm run test:install` | Public package edits | Temp install, binary behavior, API surface. |
 | `npm test` | Release/handoff | Runs the full local gate. |
@@ -136,9 +137,27 @@ curl -fL "http://127.0.0.1:7331/api/export?sessionId=SESSION_ID&raw=1" \
 
 Expected:
 
-- Redacted exports include `manifest.json`, `events.jsonl`, `sessions.jsonl`, and summaries when present.
+- Redacted exports include `manifest.json`, `events.jsonl`, `sessions.jsonl`, `traces.jsonl`, `spans.jsonl`, `session_metrics.jsonl`, `annotations.jsonl`, and summaries when present.
+- Incident exports with `--incident` include `incident.json` and remain redacted by default.
 - Raw exports include `raw.jsonl`.
 - Raw HTTP export without `x-tracebase-raw-export: 1` returns `403`.
+
+## Run Intelligence Workflow
+
+```sh
+node bin/tracebase.js analyze --session-id SESSION_ID
+node bin/tracebase.js costs --session-id SESSION_ID
+curl -s "http://127.0.0.1:7331/api/costs?sessionId=SESSION_ID"
+curl -s "http://127.0.0.1:7331/api/trace-diff?sessionId=SESSION_ID"
+node bin/tracebase.js run-compare --base-session-id BASE --target-session-id TARGET
+```
+
+Expected:
+
+- Cost output reports token totals and estimated local cost when model and usage data are present.
+- Session metrics include context-waste counts plus quality, cost, efficiency, and risk scores.
+- Trace diff reports whether indexed rows match the source transcript.
+- Cost estimates are local best-effort values; provider-reported costs win when present.
 
 ## Summary Runner Workflow
 

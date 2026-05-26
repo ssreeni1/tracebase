@@ -104,6 +104,7 @@ function rootSpanFromSession(session) {
 function canonicalSpanFromEvent(event) {
   const sessionId = event.sessionId || event.taskId || "unknown";
   const spanType = spanTypeFromEvent(event);
+  const structured = event.structured || {};
   return {
     id: event.id || hash(JSON.stringify(event)),
     traceId: traceIdForSession(sessionId),
@@ -125,7 +126,30 @@ function canonicalSpanFromEvent(event) {
     metadata: {
       sourcePath: event.sourcePath || null,
       offset: event.offset == null ? null : Number(event.offset),
-      taskId: event.taskId || null
+      taskId: event.taskId || null,
+      model: structured.model || null,
+      metrics: {
+        inputTokens: structured.inputTokens == null ? null : Number(structured.inputTokens),
+        outputTokens: structured.outputTokens == null ? null : Number(structured.outputTokens),
+        cacheReadTokens: structured.cacheReadTokens == null ? null : Number(structured.cacheReadTokens),
+        cacheWriteTokens: structured.cacheWriteTokens == null ? null : Number(structured.cacheWriteTokens),
+        reasoningTokens: structured.reasoningTokens == null ? null : Number(structured.reasoningTokens),
+        totalTokens: structured.totalTokens == null ? null : Number(structured.totalTokens),
+        costUsd: structured.estimatedCostUsd == null ? null : Number(structured.estimatedCostUsd),
+        costConfidence: structured.costConfidence || "unknown"
+      },
+      tool: {
+        name: structured.toolName || null,
+        command: structured.command || null,
+        filePath: structured.filePath || null,
+        exitCode: structured.exitCode == null ? null : Number(structured.exitCode),
+        inputChars: structured.inputChars == null ? null : Number(structured.inputChars),
+        outputChars: structured.outputChars == null ? null : Number(structured.outputChars)
+      },
+      approvalState: structured.approvalState || null,
+      errorKind: structured.errorKind || null,
+      filesTouched: Array.isArray(structured.filesTouched) ? structured.filesTouched : [],
+      redactionCount: structured.redactionCount == null ? 0 : Number(structured.redactionCount)
     },
     blobId: event.blobId || null,
     redactions: redactionsForSpan(event.redactions)

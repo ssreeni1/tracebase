@@ -61,6 +61,7 @@ function openIndex(traceHome) {
       summary TEXT,
       searchText TEXT,
       redactions TEXT,
+      structured TEXT,
       blobId TEXT,
       insertedAt TEXT DEFAULT CURRENT_TIMESTAMP
     );
@@ -171,14 +172,59 @@ function openIndex(traceHome) {
       resteerCount INTEGER,
       loopCount INTEGER,
       recoveryCount INTEGER,
+      failedToolCount INTEGER,
+      approvalDeniedCount INTEGER,
+      repeatedCommandCount INTEGER,
+      contextWasteCount INTEGER,
+      largeOutputCount INTEGER,
+      filesTouchedCount INTEGER,
+      redactionCount INTEGER,
+      model TEXT,
+      inputTokens INTEGER,
+      outputTokens INTEGER,
+      cacheReadTokens INTEGER,
+      cacheWriteTokens INTEGER,
+      reasoningTokens INTEGER,
+      totalTokens INTEGER,
+      estimatedCostUsd REAL,
       outcome TEXT,
       qualityScore INTEGER,
+      costScore INTEGER,
+      efficiencyScore INTEGER,
+      riskScore INTEGER,
       analyzedAt TEXT
     );
   `));
   migrateTraceSessionUniqueness(db);
+  ensureColumn(db, "events", "structured", "TEXT");
+  for (const [column, definition] of [
+    ["failedToolCount", "INTEGER"],
+    ["approvalDeniedCount", "INTEGER"],
+    ["repeatedCommandCount", "INTEGER"],
+    ["contextWasteCount", "INTEGER"],
+    ["largeOutputCount", "INTEGER"],
+    ["filesTouchedCount", "INTEGER"],
+    ["redactionCount", "INTEGER"],
+    ["model", "TEXT"],
+    ["inputTokens", "INTEGER"],
+    ["outputTokens", "INTEGER"],
+    ["cacheReadTokens", "INTEGER"],
+    ["cacheWriteTokens", "INTEGER"],
+    ["reasoningTokens", "INTEGER"],
+    ["totalTokens", "INTEGER"],
+    ["estimatedCostUsd", "REAL"],
+    ["costScore", "INTEGER"],
+    ["efficiencyScore", "INTEGER"],
+    ["riskScore", "INTEGER"]
+  ]) ensureColumn(db, "session_metrics", column, definition);
   backfillCanonicalTraceTables(db);
   return db;
+}
+
+function ensureColumn(db, table, column, definition) {
+  const rows = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (rows.some((row) => row.name === column)) return;
+  withRetry(() => db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`));
 }
 
 function migrateTraceSessionUniqueness(db) {
@@ -232,6 +278,7 @@ function eventParams(row) {
     $summary: row.summary || null,
     $searchText: row.searchText || null,
     $redactions: asJson(row.redactions || []),
+    $structured: asJson(row.structured || {}),
     $blobId: row.blobId || null
   };
 }
@@ -241,10 +288,10 @@ function insertEvent(db, row) {
   const result = withRetry(() => db.prepare(`
     INSERT OR IGNORE INTO events (
       id, taskId, sessionId, provider, type, role, cwd, sourcePath, offset,
-      timestamp, summary, searchText, redactions, blobId
+      timestamp, summary, searchText, redactions, structured, blobId
     ) VALUES (
       $id, $taskId, $sessionId, $provider, $type, $role, $cwd, $sourcePath, $offset,
-      $timestamp, $summary, $searchText, $redactions, $blobId
+      $timestamp, $summary, $searchText, $redactions, $structured, $blobId
     )
   `).run(params));
   if (result.changes) {
@@ -418,7 +465,8 @@ function upsertTask(db, row) {
 function parseEvent(row) {
   return {
     ...row,
-    redactions: row.redactions ? JSON.parse(row.redactions) : []
+    redactions: row.redactions ? JSON.parse(row.redactions) : [],
+    structured: row.structured ? JSON.parse(row.structured) : {}
   };
 }
 
@@ -708,8 +756,12 @@ function listSessionMetrics(db, options = {}) {
   return db.prepare(`
     SELECT s.id, s.provider, s.sourcePath, s.cwd, s.startedAt, s.endedAt,
            COALESCE(m.eventCount, s.eventCount) AS eventCount, s.project, s.updatedAt,
-           m.failureCount, m.resteerCount, m.loopCount, m.recoveryCount,
-           m.outcome, m.qualityScore, m.analyzedAt
+           m.toolCount, m.userPromptCount, m.failureCount, m.resteerCount, m.loopCount, m.recoveryCount,
+           m.failedToolCount, m.approvalDeniedCount, m.repeatedCommandCount, m.contextWasteCount,
+           m.largeOutputCount, m.filesTouchedCount,
+           m.redactionCount, m.model, m.inputTokens, m.outputTokens, m.cacheReadTokens,
+           m.cacheWriteTokens, m.reasoningTokens, m.totalTokens, m.estimatedCostUsd,
+           m.outcome, m.qualityScore, m.costScore, m.efficiencyScore, m.riskScore, m.analyzedAt
     FROM sessions s
     LEFT JOIN session_metrics m ON m.sessionId = s.id
     ORDER BY COALESCE(s.endedAt, s.updatedAt, s.startedAt) DESC

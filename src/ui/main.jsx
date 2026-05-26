@@ -5,8 +5,10 @@ import {
   Archive,
   Brain,
   Clock,
+  DollarSign,
   Download,
   Filter,
+  GitCompare,
   Moon,
   RefreshCcw,
   Search,
@@ -47,6 +49,14 @@ function qs(params) {
   const out = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (filterKeys.includes(key) && value !== "" && value != null) out.set(key, value);
+  }
+  return out.toString();
+}
+
+function exportQs(params) {
+  const out = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== "" && value != null) out.set(key, value);
   }
   return out.toString();
 }
@@ -107,6 +117,17 @@ function providerLabel(provider) {
   return provider;
 }
 
+function numberFmt(value) {
+  const n = Number(value || 0);
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(n);
+}
+
+function moneyFmt(value) {
+  const n = Number(value || 0);
+  if (!n) return "$0";
+  return `$${n.toFixed(n < 0.01 ? 4 : 2)}`;
+}
+
 function App() {
   const [filters, setFilters] = useState(() => filtersFromSearch(location.search));
   const [theme, setTheme] = useState(initialTheme);
@@ -114,6 +135,11 @@ function App() {
   const [sessions, setSessions] = useState([]);
   const [events, setEvents] = useState([]);
   const [spans, setSpans] = useState([]);
+  const [metrics, setMetrics] = useState(null);
+  const [annotations, setAnnotations] = useState([]);
+  const [traceDiff, setTraceDiff] = useState(null);
+  const [compareTarget, setCompareTarget] = useState("");
+  const [comparison, setComparison] = useState(null);
   const [summary, setSummary] = useState(null);
   const [summaryRunners, setSummaryRunners] = useState([]);
   const [cwdOptions, setCwdOptions] = useState([]);
@@ -165,14 +191,27 @@ function App() {
         selected ? api(`/api/summaries/session/${encodeURIComponent(selected)}`, null) : null
       ]);
       const traceId = nextTraces[0]?.id;
-      const nextSpans = traceId ? await api(`/api/spans?traceId=${encodeURIComponent(traceId)}&limit=250`, []) : [];
+      const [nextSpans, nextMetrics, nextAnnotations, nextDiff] = await Promise.all([
+        traceId ? api(`/api/spans?traceId=${encodeURIComponent(traceId)}&limit=250`, []) : [],
+        selected ? api(`/api/session-metrics?limit=10000`, []) : [],
+        selected ? api(`/api/annotations?sessionId=${encodeURIComponent(selected)}&limit=100`, []) : [],
+        selected ? api(`/api/trace-diff?sessionId=${encodeURIComponent(selected)}`, null) : null
+      ]);
       setStats(nextStats);
       setSessions(nextSessions);
       setActive(selected);
       activeRef.current = selected;
       setEvents(nextEvents);
       setSpans(nextSpans);
+      setMetrics((nextMetrics || []).find((row) => row.id === selected) || null);
+      setAnnotations(nextAnnotations || []);
+      setTraceDiff(nextDiff);
       setSummary(nextSummary?.summary ? nextSummary : null);
+      if (compareTarget && compareTarget !== selected) {
+        setComparison(await api(`/api/run-compare?baseSessionId=${encodeURIComponent(selected)}&targetSessionId=${encodeURIComponent(compareTarget)}`, null));
+      } else {
+        setComparison(null);
+      }
       setLastLoaded(new Date());
     } finally {
       loadingRef.current = false;
@@ -222,7 +261,7 @@ function App() {
   }
 
   async function downloadExport(params, raw = false) {
-    const query = qs({ ...params, raw: raw ? "1" : "" });
+    const query = exportQs({ ...params, raw: raw ? "1" : "" });
     setBusy(true);
     try {
       const res = await fetch(`/api/export?${query}`, {
@@ -245,12 +284,17 @@ function App() {
     return downloadExport(filters, false);
   }
 
+  async function exportIncident() {
+    return downloadExport({ ...filters, sessionId: active, incident: "1" }, false);
+  }
+
   const selectedRunner = summaryRunners.find((runner) => runner.runner === summaryRunner);
   const summaryUnavailable = selectedRunner?.available === false;
   const summarizeTitle = summaryUnavailable
     ? `${selectedRunner.label} was not found on this machine`
     : `Proxy this session packet to the local ${selectedRunner?.label || summaryRunner} process`;
   const latestFull = fmt(stats?.latestEventAt);
+  const compareOptions = sessions.filter((session) => session.id !== active);
 
   return (
     <div className="shell" data-theme={theme}>
@@ -309,11 +353,21 @@ function App() {
             <button onClick={summarize} disabled={!active || busy || summaryUnavailable} title={summarizeTitle}><Brain size={16} /> Summarize</button>
             <span className={selectedRunner?.available === false ? "runnerState missing" : "runnerState"}>{selectedRunner ? (selectedRunner.available ? `local ${selectedRunner.runner}` : `${selectedRunner.runner} missing`) : "local CLI"}</span>
             <button onClick={() => exportTrace(false)} disabled={!active || busy}><Download size={16} /> Export session</button>
+            <button onClick={exportIncident} disabled={!active || busy}><Shield size={16} /> Safe packet</button>
             <button onClick={exportFiltered}><Download size={16} /> Export filtered</button>
             <label className="unlock"><input type="checkbox" checked={rawUnlocked} onChange={(e) => setRawUnlocked(e.target.checked)} /> unlock raw export</label>
             <button disabled={!active || !rawUnlocked || busy} onClick={() => exportTrace(true)}><Archive size={16} /> Export raw zip</button>
             <span>{busy ? "Loading..." : lastLoaded ? `Updated ${lastLoaded.toLocaleTimeString()}` : ""}</span>
           </div>
+
+          <section className="scorecard">
+            <div><strong>{metrics?.qualityScore ?? "?"}</strong><span>quality</span></div>
+            <div><strong>{numberFmt(metrics?.totalTokens)}</strong><span>tokens</span></div>
+            <div><strong>{moneyFmt(metrics?.estimatedCostUsd)}</strong><span>est. cost</span></div>
+            <div><strong>{metrics?.failureCount ?? 0}</strong><span>failures</span></div>
+            <div><strong>{metrics?.contextWasteCount ?? 0}</strong><span>waste</span></div>
+            <div><strong>{metrics?.redactionCount ?? 0}</strong><span>redactions</span></div>
+          </section>
 
           <div className="content">
             <section className="summary">
@@ -323,6 +377,45 @@ function App() {
             <section className="trace">
               <h2>Trace Tree</h2>
               <div className="spanList">{spans.map((span) => <div key={span.id} className="spanRow"><b>{span.spanType}</b><span>{span.name}</span><small>{fmt(span.startTime)}</small></div>)}</div>
+            </section>
+          </div>
+
+          <div className="content diagnosticsGrid">
+            <section className="diagnostics">
+              <h2><DollarSign size={14} /> Run Intelligence</h2>
+              <dl>
+                <div><dt>Model</dt><dd>{metrics?.model || "unknown"}</dd></div>
+                <div><dt>Input / output</dt><dd>{numberFmt(metrics?.inputTokens)} / {numberFmt(metrics?.outputTokens)}</dd></div>
+                <div><dt>Cache read / write</dt><dd>{numberFmt(metrics?.cacheReadTokens)} / {numberFmt(metrics?.cacheWriteTokens)}</dd></div>
+                <div><dt>Reasoning</dt><dd>{numberFmt(metrics?.reasoningTokens)}</dd></div>
+                <div><dt>Files touched</dt><dd>{metrics?.filesTouchedCount ?? 0}</dd></div>
+                <div><dt>Large outputs</dt><dd>{metrics?.largeOutputCount ?? 0}</dd></div>
+                <div><dt>Repeated commands</dt><dd>{metrics?.repeatedCommandCount ?? 0}</dd></div>
+                <div><dt>Denied approvals</dt><dd>{metrics?.approvalDeniedCount ?? 0}</dd></div>
+              </dl>
+            </section>
+            <section className="diagnostics">
+              <h2><GitCompare size={14} /> Coverage & Diagnostics</h2>
+              <label className="compareSelect">Compare<select value={compareTarget} onChange={(e) => {
+                setCompareTarget(e.target.value);
+                if (e.target.value && active) {
+                  api(`/api/run-compare?baseSessionId=${encodeURIComponent(active)}&targetSessionId=${encodeURIComponent(e.target.value)}`, null).then(setComparison);
+                } else {
+                  setComparison(null);
+                }
+              }}><option value="">None</option>{compareOptions.map((session) => <option key={session.id} value={session.id}>{session.id}</option>)}</select></label>
+              <dl>
+                <div><dt>Transcript indexed</dt><dd>{traceDiff?.complete === false ? "incomplete" : traceDiff?.complete === true ? "complete" : "unknown"}</dd></div>
+                <div><dt>Missing events</dt><dd>{traceDiff?.missingIndexedEvents ?? 0}</dd></div>
+                <div><dt>Annotations</dt><dd>{annotations.length}</dd></div>
+                <div><dt>Outcome</dt><dd>{metrics?.outcome || "unanalyzed"}</dd></div>
+                {comparison && <div><dt>Token delta</dt><dd>{numberFmt(comparison.deltas.totalTokens.delta)}</dd></div>}
+                {comparison && <div><dt>Cost delta</dt><dd>{moneyFmt(comparison.deltas.estimatedCostUsd.delta)}</dd></div>}
+                {comparison && <div><dt>Waste delta</dt><dd>{numberFmt(comparison.deltas.contextWasteCount.delta)}</dd></div>}
+              </dl>
+              <div className="annotationList">
+                {annotations.slice(0, 5).map((row) => <div key={row.id}><b>{row.kind}</b><span>{row.reason}</span></div>)}
+              </div>
             </section>
           </div>
 
