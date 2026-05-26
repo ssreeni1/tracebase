@@ -173,6 +173,8 @@ function auditDocs() {
   assertIncludes("SECURITY.md", "npm run test:stress", "security release checklist stress gate");
   assertIncludes("SECURITY.md", "npm audit --omit=dev", "security release checklist dependency audit");
   assertIncludes(".github/workflows/ci.yml", "node-version: \"24\"", "CI Node 24 gate");
+  assertIncludes(".github/workflows/ci.yml", "actions/checkout@v6", "Node 24-compatible checkout action");
+  assertIncludes(".github/workflows/ci.yml", "actions/setup-node@v6", "Node 24-compatible setup-node action");
   assertIncludes(".github/workflows/ci.yml", "npm test", "CI full test gate");
   assertIncludes(".github/workflows/ci.yml", "npm audit --omit=dev", "CI dependency audit gate");
 }
