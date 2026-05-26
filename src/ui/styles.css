@@ -173,9 +173,9 @@ input:focus, select:focus, button:focus-visible {
 }
 
 .topbar {
-  height: 68px;
+  min-height: 68px;
   display: grid;
-  grid-template-columns: 300px minmax(280px, 1fr) 42px 42px;
+  grid-template-columns: 250px minmax(260px, 1fr) minmax(470px, .9fr) 42px 42px;
   gap: 14px;
   align-items: center;
   padding: 12px 18px;
@@ -218,7 +218,7 @@ input:focus, select:focus, button:focus-visible {
   color: #f4ead8;
 }
 
-.brand span, small, .stats span, .actions span {
+.brand span, small, .headerStats span, .actions span {
   color: var(--muted);
   font-size: 12px;
 }
@@ -240,6 +240,60 @@ input:focus, select:focus, button:focus-visible {
 .searchbox svg { color: var(--muted); }
 .searchbox input { border: 0; background: transparent; width: 100%; min-height: 40px; }
 .iconButton { justify-content: center; padding: 9px; border-radius: 999px; }
+
+.headerStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(74px, 1fr)) minmax(94px, 1.15fr) 98px;
+  gap: 7px;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.headerStats div {
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .025);
+}
+
+.headerStats strong {
+  display: block;
+  color: var(--accent-ink);
+  font-family: "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.headerStats span {
+  display: block;
+  margin-top: 2px;
+  font-family: "JetBrains Mono", "IBM Plex Mono", "SFMono-Regular", ui-monospace, monospace;
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.headerStats .secure {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  color: var(--cyan);
+  background: var(--secure-bg);
+  border-color: var(--secure-line);
+}
+
+.headerStats .secure span {
+  color: var(--cyan);
+  margin: 0;
+}
 
 .toolbar {
   display: grid;
@@ -344,43 +398,6 @@ input:focus, select:focus, button:focus-visible {
   overflow: auto;
   max-height: calc(100vh - 127px);
   padding: 14px;
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(120px, 1fr)) 190px;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.stats div {
-  background: var(--surface-strong);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 12px;
-  min-height: 64px;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, .025), var(--shadow);
-  backdrop-filter: blur(12px);
-}
-
-.stats strong {
-  display: block;
-  font-family: "Cormorant Garamond", "EB Garamond", "Iowan Old Style", Garamond, "Times New Roman", serif;
-  font-size: 27px;
-  line-height: .95;
-  font-weight: 700;
-  color: var(--accent-ink);
-  overflow-wrap: anywhere;
-}
-
-.stats .secure {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  color: var(--cyan);
-  font-weight: 750;
-  background: var(--secure-bg);
-  border-color: var(--secure-line);
 }
 
 .actions {
@@ -528,7 +545,7 @@ pre {
 .events pre { max-height: 190px; background: var(--event-pre-bg); }
 
 @media (max-width: 980px) {
-  .topbar, .toolbar, .grid, .content, .stats { grid-template-columns: 1fr; }
+  .topbar, .toolbar, .grid, .content { grid-template-columns: 1fr; }
   .topbar {
     display: flex;
     flex-wrap: wrap;
@@ -539,11 +556,17 @@ pre {
     padding: 10px;
   }
   .brand { flex: 1 1 100%; }
+  .headerStats {
+    order: 3;
+    flex: 1 1 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .searchbox {
     flex: 0 1 calc(100% - 104px);
     max-width: calc(100% - 104px);
+    order: 2;
   }
-  .iconButton { flex: 0 0 44px; width: 44px; justify-content: center; }
+  .iconButton { flex: 0 0 44px; width: 44px; justify-content: center; order: 2; }
   .toolbar { padding: 10px; }
   .searchbox, .iconButton { min-height: 38px; }
   .grid { min-height: auto; }

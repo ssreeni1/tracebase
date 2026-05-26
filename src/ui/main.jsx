@@ -68,6 +68,16 @@ function fmt(value) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
+function fmtHeaderTime(value) {
+  if (!value) return "none";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const suffix = date.getHours() >= 12 ? "p" : "a";
+  const hour = date.getHours() % 12 || 12;
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${date.getMonth() + 1}/${date.getDate()} ${hour}:${minute}${suffix}`;
+}
+
 function sessionTime(session) {
   return session.endedAt || session.updatedAt || session.startedAt;
 }
@@ -240,6 +250,7 @@ function App() {
   const summarizeTitle = summaryUnavailable
     ? `${selectedRunner.label} was not found on this machine`
     : `Proxy this session packet to the local ${selectedRunner?.label || summaryRunner} process`;
+  const latestFull = fmt(stats?.latestEventAt);
 
   return (
     <div className="shell" data-theme={theme}>
@@ -254,6 +265,13 @@ function App() {
         <div className="searchbox">
           <Search size={16} />
           <input value={filters.q} onChange={(e) => updateFilter("q", e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder="Search sessions, prompts, tools, files" />
+        </div>
+        <div className="headerStats" aria-label="Tracebase aggregate statistics">
+          <div title={`${stats?.eventCount ?? 0} events`}><strong>{stats?.eventCount ?? 0}</strong><span>events</span></div>
+          <div title={`${stats?.sessionCount ?? 0} sessions`}><strong>{stats?.sessionCount ?? 0}</strong><span>sessions</span></div>
+          <div title={`${stats?.spanCount ?? 0} spans`}><strong>{stats?.spanCount ?? 0}</strong><span>spans</span></div>
+          <div className="latestStat" title={`Latest event: ${latestFull}`}><strong>{fmtHeaderTime(stats?.latestEventAt)}</strong><span>latest</span></div>
+          <div className="secure"><Shield size={14} /><span>encrypted</span></div>
         </div>
         <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="iconButton" title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>
           {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
@@ -286,14 +304,6 @@ function App() {
         </aside>
 
         <section className="workspace">
-          <div className="stats">
-            <div><strong>{stats?.eventCount ?? 0}</strong><span>events</span></div>
-            <div><strong>{stats?.sessionCount ?? 0}</strong><span>sessions</span></div>
-            <div><strong>{stats?.spanCount ?? 0}</strong><span>spans</span></div>
-            <div><strong>{fmt(stats?.latestEventAt)}</strong><span>latest</span></div>
-            <div className="secure"><Shield size={15} /> local encrypted store</div>
-          </div>
-
           <div className="actions">
             <label className="runner">Runner<select value={summaryRunner} onChange={(e) => setSummaryRunner(e.target.value)}>{(summaryRunners.length ? summaryRunners : [{ runner: "codex", label: "Codex CLI" }, { runner: "claude", label: "Claude CLI" }]).map((runner) => <option key={runner.runner} value={runner.runner}>{runner.label}{runner.available === false ? " unavailable" : ""}</option>)}</select></label>
             <button onClick={summarize} disabled={!active || busy || summaryUnavailable} title={summarizeTitle}><Brain size={16} /> Summarize</button>
