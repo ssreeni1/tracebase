@@ -6,7 +6,7 @@ const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
 const LABEL = "io.tracebase.watch";
-const LEGACY_LABELS = ["com.saneel.local-agent-traces.watch"];
+const LEGACY_LABELS = [];
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
