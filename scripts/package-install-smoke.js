@@ -113,6 +113,14 @@ async function main() {
   if (fs.existsSync(path.join(installDir, "node_modules", PACKAGE_NAME, "src", "ui"))) {
     throw new Error("published package should not include frontend source src/ui/");
   }
+  for (const file of ["judges.js", "datasets.js", "rules.js", "regression.js", "templates.js", "workflow-intel.js", "registry.js"]) {
+    if (fs.existsSync(path.join(installDir, "node_modules", PACKAGE_NAME, "src", file))) {
+      throw new Error(`published package should not include internal eval/memory source src/${file}`);
+    }
+  }
+  if (fs.existsSync(path.join(installDir, "node_modules", PACKAGE_NAME, "templates"))) {
+    throw new Error("published package should not include internal monitoring templates/");
+  }
   const api = require(path.join(installDir, "node_modules", PACKAGE_NAME));
   for (const name of ["TraceStore", "createServer", "buildExportZip", "redactText"]) {
     if (typeof api[name] !== "function") throw new Error(`installed package API missing ${name}`);

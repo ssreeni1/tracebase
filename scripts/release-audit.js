@@ -78,8 +78,11 @@ function auditPackage() {
   for (const file of ["README.md", "SECURITY.md", "ARCHITECTURE.md", "CONTRIBUTING.md", "TESTING.md", "LICENSE"]) {
     if (!exists(file)) fail(`missing required release document: ${file}`);
   }
-  for (const entry of ["TESTING.md", "index.js", "bin/", "dist/", "src/", "templates/"]) {
+  for (const entry of ["TESTING.md", "index.js", "bin/", "dist/", "src/"]) {
     if (!pkg.files || !pkg.files.includes(entry)) fail(`package files missing ${entry}`);
+  }
+  if (pkg.files && pkg.files.includes("templates/")) {
+    fail("published package must not include internal monitoring templates");
   }
   const apiSource = read("index.js");
   for (const symbol of ["TraceStore", "createServer", "buildExportZip", "redactText"]) {
@@ -129,6 +132,9 @@ function auditPackage() {
   if (!installSmoke.includes("PACKAGE_NAME, \"src\", \"ui\"")) {
     fail("package install smoke must verify frontend source is absent from the installed package name");
   }
+  if (!installSmoke.includes("\"judges.js\", \"datasets.js\", \"rules.js\"") || !installSmoke.includes("\"registry.js\"")) {
+    fail("package install smoke must verify eval/judge modules are absent from the installed package name");
+  }
   if (!installSmoke.includes("installed package API missing")) {
     fail("package install smoke must verify the installed CommonJS API surface");
   }
@@ -146,7 +152,7 @@ function auditDocs() {
   assertIncludes("README.md", "tracebase serve", "viewer command");
   assertIncludes("README.md", "tracebase agent", "live intake command");
   assertIncludes("README.md", "Codex/Claude CLI availability", "doctor runner availability diagnostics");
-  assertIncludes("README.md", "traces mcp --allow-write", "MCP write opt-in");
+  assertIncludes("README.md", "The MCP server is read-only and exposes trace search", "MCP read-only OSS surface");
   assertIncludes("README.md", "## Programmatic API", "programmatic extension API docs");
   assertIncludes("README.md", "require(\"tracebase-local\")", "CommonJS API usage docs");
   assertIncludes("README.md", "browser-supplied command overrides are ignored", "summary runner command override boundary");
@@ -158,10 +164,10 @@ function auditDocs() {
   assertIncludes("SECURITY.md", "Origin", "browser origin policy");
   assertIncludes("SECURITY.md", "TRACEBASE_ALLOW_RAW_BLOB_API=1", "raw blob opt-in");
   assertIncludes("SECURITY.md", "browser requests cannot override the executable or arguments", "local summary runner security boundary");
-  assertIncludes("SECURITY.md", "TRACEBASE_MCP_ALLOW_WRITE=1", "MCP write opt-in");
+  assertIncludes("SECURITY.md", "MCP server is read-only", "MCP read-only security model");
   assertIncludes("SECURITY.md", "reject undeclared arguments", "MCP schema smuggling guard");
   assertIncludes("ARCHITECTURE.md", "read-only stdio MCP server", "MCP read-only architecture note");
-  assertIncludes("ARCHITECTURE.md", "traces mcp --allow-write", "MCP write opt-in architecture note");
+  assertIncludes("ARCHITECTURE.md", "The OSS MCP server is read-only", "MCP read-only architecture note");
   assertIncludes("README.md", "npm run test:stress", "concurrent storage stress gate");
   assertIncludes("CONTRIBUTING.md", "npm test", "contributor test gate");
   assertIncludes("CONTRIBUTING.md", "npm run test:stress", "contributor stress test gate");
@@ -345,6 +351,24 @@ function auditSourceHygiene() {
   if (!daemon.includes("io.tracebase.watch")) fail("daemon missing public launchd label");
   if (!daemon.includes("LEGACY_LABELS")) fail("daemon should keep legacy watcher cleanup compatibility");
   if (/Lapdog/.test(read("README.md"))) fail("README contains stale internal observability naming");
+  for (const file of ["src/judges.js", "src/datasets.js", "src/rules.js", "src/regression.js", "src/templates.js", "src/workflow-intel.js", "src/registry.js"]) {
+    if (exists(file)) fail(`public OSS cut must not include internal eval/memory module: ${file}`);
+  }
+  if (exists("templates/coding-agent-baseline.json")) {
+    fail("public OSS cut must not include internal behavior-monitoring template");
+  }
+  const publicSurface = [
+    ["README.md", read("README.md")],
+    ["ARCHITECTURE.md", read("ARCHITECTURE.md")],
+    ["SECURITY.md", read("SECURITY.md")],
+    ["src/cli.js", read("src/cli.js")],
+    ["src/server.js", read("src/server.js")],
+    ["src/mcp.js", read("src/mcp.js")]
+  ];
+  const removedSurfacePattern = /\b(judge-create|judge-run|dataset-create|bucket-create|rule-create|compare-sessions|compare-datasets|template-install|template-list|config-commit|workflow-lessons|TRACEBASE_MCP_ALLOW_WRITE)\b/;
+  for (const [file, text] of publicSurface) {
+    if (removedSurfacePattern.test(text)) fail(`public OSS surface still references internal eval/memory tooling in ${file}`);
+  }
 }
 
 auditPackage();

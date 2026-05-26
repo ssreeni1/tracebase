@@ -16,7 +16,6 @@
     "ai",
     "agents",
     "tracing",
-    "evals",
     "codex",
     "claude"
   ],
@@ -58,8 +57,7 @@
     "bin/",
     "dist/",
     "src/",
-    "!src/ui/",
-    "templates/"
+    "!src/ui/"
   ],
   "dependencies": {
     "jszip": "^3.10.1"

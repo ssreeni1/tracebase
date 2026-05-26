@@ -22,7 +22,6 @@ flowchart LR
   index --> cli["CLI search / health / diff"]
   index --> mcp["Read-only MCP"]
   index --> llmobs["Trace/span + LLMObs views"]
-  index --> intelligence["Annotations, judges,<br/>datasets, rules, alerts"]
   dashboard --> export
 ```
 
@@ -31,7 +30,6 @@ flowchart LR
 | Ingestion | Import Codex/Claude JSONL, poll transcript folders, accept explicit live intake, record wrapper metadata | `index.jsonl`, `sessions.jsonl`, encrypted `blobs/*.json` |
 | Indexing | Normalize events, build searchable session/event/span projections, support dashboard filters | `traces.sqlite` |
 | Dashboard/API | Serve local UI, read-only trace views, exports, summaries, and opt-in intake | Built `dist/` assets plus HTTP handlers |
-| Intelligence | Derive annotations, workflow lessons, judges, behaviors, datasets, rules, and alerts | Append-only JSONL plus rebuildable SQLite tables |
 | Integrations | CLI commands, stdio MCP tools, bootstrap docs, shell wrappers, launchd watcher | Local config/docs only |
 
 ## Storage Model
@@ -40,8 +38,6 @@ flowchart LR
 - AES-256-GCM encrypted blobs are the durable raw event store.
 - SQLite plus FTS5 is a rebuildable query index for fast dashboard and CLI search.
 - Canonical trace/span tables project each session into a trace with a root span and transcript-visible child spans.
-- Local judges, evaluations, behaviors, datasets, buckets, rules, alerts, and config commits are append-only records with rebuildable projections.
-- Templates are JSON bundles of judges, behaviors, datasets, buckets, and rules.
 
 This keeps capture resilient: if SQLite is deleted or corrupted, it can be rebuilt from local append-only logs and encrypted blobs.
 
@@ -62,12 +58,12 @@ All ingestion is idempotent by event id or content hash.
 
 | Interface | Default posture | Purpose |
 | --- | --- | --- |
-| CLI | Local process only | Import, inspect, export, analyze, configure, and run health checks. |
+| CLI | Local process only | Import, inspect, export, analyze, and run health checks. |
 | Dashboard | Binds to `127.0.0.1` | Browse sessions, events, traces, spans, summaries, and exports. |
 | HTTP API | Read-mostly | Powers the dashboard and explicit local integrations. |
 | MCP | Read-only by default | A read-only stdio MCP server lets local coding agents query traces without a network service. |
 
-State-changing HTTP intake requires `traces agent`, `traces serve --allow-intake`, or `TRACEBASE_ALLOW_INTAKE=1`. MCP write tools require `traces mcp --allow-write` or `TRACEBASE_MCP_ALLOW_WRITE=1`.
+State-changing HTTP intake requires `traces agent`, `traces serve --allow-intake`, or `TRACEBASE_ALLOW_INTAKE=1`. The OSS MCP server is read-only.
 
 ## Security Boundaries
 
@@ -84,8 +80,7 @@ State-changing HTTP intake requires `traces agent`, `traces serve --allow-intake
 | Task | Command |
 | --- | --- |
 | Rebuild query index | `traces index` |
-| Re-run trace intelligence | `traces analyze` |
-| Distill workflow lessons | `traces distill` |
+| Re-run trace annotations | `traces analyze` |
 | Inspect recent events | `traces recent --limit 20` |
 | Inspect canonical traces | `traces traces-list` |
 | Inspect spans | `traces spans --session-id <id>` |

@@ -92,10 +92,8 @@ Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage enc
 | Inspect | `stats`, `health`, `recent`, `search`, `show`, `decision-log`, `trace-diff`, `traces-list`, `spans` |
 | Dashboard/API | `serve`, `agent` |
 | Export/summary | `export`, `summarize` |
-| Observability | `analyze`, `distill`, `llmobs-spans`, `llmobs-trace`, `net-snapshot` |
-| Evaluation loop | `judge-create`, `judge-run`, `behavior-create`, `dataset-create`, `bucket-create`, `rule-create`, `compare-sessions`, `compare-datasets` |
-| Templates/config | `template-list`, `template-install`, `config-commit`, `configs`, `config-show` |
-| MCP | `mcp`, `mcp --allow-write` |
+| Observability | `analyze`, `llmobs-spans`, `llmobs-trace`, `net-snapshot` |
+| MCP | `mcp` |
 
 `tracebase doctor` reports paths, capture coverage, watcher state, and Codex/Claude CLI availability. Run `tracebase --help` for full options.
 
@@ -151,7 +149,7 @@ command = "node"
 args = ["/absolute/path/to/bin/traces.js", "mcp"]
 ```
 
-The MCP server is read-only by default. Use `traces mcp --allow-write` or `TRACEBASE_MCP_ALLOW_WRITE=1` only when the connected local agent should create judges, datasets, rules, config commits, or other derived records.
+The MCP server is read-only and exposes trace search plus canonical trace/span listing. It intentionally does not expose write tools in the OSS build.
 
 ## Development
 

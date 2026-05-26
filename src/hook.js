@@ -7,7 +7,6 @@ const { TraceStore } = require("./storage");
 const { normalizeEvent } = require("./normalize");
 const { likelyProviderFromTranscriptPath } = require("./importers");
 const { analyzeStore } = require("./analyze");
-const { distillWorkflows } = require("./workflow-intel");
 
 function readStdin() {
   return new Promise((resolve, reject) => {
@@ -53,7 +52,6 @@ async function ingestHook(stdinText, options = {}) {
     });
     if (options.analyze !== false) {
       analyzeStore(store, { sessionId: event.sessionId });
-      distillWorkflows(store, { limit: 50000 });
     }
     return { ok: true, id: event.id };
   } finally {

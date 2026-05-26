@@ -45,16 +45,6 @@ class TraceStore {
     this.tasksPath = path.join(this.home, "tasks.jsonl");
     this.sessionsPath = path.join(this.home, "sessions.jsonl");
     this.importsPath = path.join(this.home, "imports.jsonl");
-    this.judgesPath = path.join(this.home, "judges.jsonl");
-    this.evaluationsPath = path.join(this.home, "evaluations.jsonl");
-    this.behaviorsPath = path.join(this.home, "behaviors.jsonl");
-    this.behaviorResultsPath = path.join(this.home, "behavior-results.jsonl");
-    this.datasetsPath = path.join(this.home, "datasets.jsonl");
-    this.datasetItemsPath = path.join(this.home, "dataset-items.jsonl");
-    this.bucketsPath = path.join(this.home, "buckets.jsonl");
-    this.rulesPath = path.join(this.home, "rules.jsonl");
-    this.alertsPath = path.join(this.home, "alerts.jsonl");
-    this.configsPath = path.join(this.home, "configs.jsonl");
     this.summariesPath = path.join(this.home, "summaries.jsonl");
     this.blobDir = path.join(this.home, "blobs");
     this.db = null;
@@ -71,16 +61,6 @@ class TraceStore {
       this.tasksPath,
       this.sessionsPath,
       this.importsPath,
-      this.judgesPath,
-      this.evaluationsPath,
-      this.behaviorsPath,
-      this.behaviorResultsPath,
-      this.datasetsPath,
-      this.datasetItemsPath,
-      this.bucketsPath,
-      this.rulesPath,
-      this.alertsPath,
-      this.configsPath,
       this.summariesPath
     ]) {
       if (!fs.existsSync(file)) fs.writeFileSync(file, "", { mode: 0o600 });
@@ -318,163 +298,6 @@ class TraceStore {
     return { events, spans, accepted: events.length + spans.length };
   }
 
-  upsertJudge(spec) {
-    const row = {
-      recordedAt: new Date().toISOString(),
-      ...spec
-    };
-    this.appendJsonl(this.judgesPath, row);
-    sqlite.upsertJudge(this.getDb(), spec);
-    return spec;
-  }
-
-  listJudges(options = {}) {
-    return sqlite.listJudges(this.getDb(), options);
-  }
-
-  getJudge(idOrName) {
-    return sqlite.getJudge(this.getDb(), idOrName);
-  }
-
-  getJudgeVersion(judgeId, version) {
-    return sqlite.getJudgeVersion(this.getDb(), judgeId, version);
-  }
-
-  recordEvaluation(row) {
-    this.appendJsonl(this.evaluationsPath, row);
-    sqlite.insertEvaluation(this.getDb(), row);
-  }
-
-  listEvaluations(options = {}) {
-    return sqlite.listEvaluations(this.getDb(), options);
-  }
-
-  upsertBehavior(row) {
-    const recorded = {
-      recordedAt: new Date().toISOString(),
-      ...row
-    };
-    this.appendJsonl(this.behaviorsPath, recorded);
-    sqlite.upsertBehavior(this.getDb(), row);
-    return row;
-  }
-
-  listBehaviors(options = {}) {
-    return sqlite.listBehaviors(this.getDb(), options);
-  }
-
-  recordBehaviorResult(behavior, evaluation) {
-    sqlite.insertBehaviorResult(this.getDb(), behavior, evaluation);
-    const row = {
-      behaviorId: behavior.id,
-      evaluationId: evaluation.id,
-      traceId: evaluation.traceId || null,
-      spanId: evaluation.spanId || null,
-      sessionId: evaluation.sessionId || null,
-      detected: true,
-      label: evaluation.label || null,
-      reason: evaluation.reason || null,
-      createdAt: new Date().toISOString()
-    };
-    this.appendJsonl(this.behaviorResultsPath, row);
-  }
-
-  listBehaviorResults(options = {}) {
-    return sqlite.listBehaviorResults(this.getDb(), options);
-  }
-
-  upsertDataset(row) {
-    const recorded = {
-      recordedAt: new Date().toISOString(),
-      ...row
-    };
-    this.appendJsonl(this.datasetsPath, recorded);
-    sqlite.upsertDataset(this.getDb(), row);
-    return row;
-  }
-
-  listDatasets(options = {}) {
-    return sqlite.listDatasets(this.getDb(), options);
-  }
-
-  getDataset(idOrName) {
-    return sqlite.getDataset(this.getDb(), idOrName);
-  }
-
-  addDatasetItem(row) {
-    const changes = sqlite.insertDatasetItem(this.getDb(), row);
-    if (changes) this.appendJsonl(this.datasetItemsPath, row);
-    return changes;
-  }
-
-  listDatasetItems(options = {}) {
-    return sqlite.listDatasetItems(this.getDb(), options);
-  }
-
-  upsertBucket(row) {
-    const recorded = {
-      recordedAt: new Date().toISOString(),
-      ...row
-    };
-    this.appendJsonl(this.bucketsPath, recorded);
-    sqlite.upsertBucket(this.getDb(), row);
-    return row;
-  }
-
-  listBuckets(options = {}) {
-    return sqlite.listBuckets(this.getDb(), options);
-  }
-
-  getBucket(idOrName) {
-    return sqlite.getBucket(this.getDb(), idOrName);
-  }
-
-  upsertRule(row) {
-    const recorded = {
-      recordedAt: new Date().toISOString(),
-      ...row
-    };
-    this.appendJsonl(this.rulesPath, recorded);
-    sqlite.upsertRule(this.getDb(), row);
-    return row;
-  }
-
-  listRules(options = {}) {
-    return sqlite.listRules(this.getDb(), options);
-  }
-
-  getRule(idOrName) {
-    return sqlite.getRule(this.getDb(), idOrName);
-  }
-
-  recordAlert(row) {
-    this.appendJsonl(this.alertsPath, row);
-    sqlite.insertAlert(this.getDb(), row);
-    return row;
-  }
-
-  listAlerts(options = {}) {
-    return sqlite.listAlerts(this.getDb(), options);
-  }
-
-  commitConfig(spec) {
-    this.appendJsonl(this.configsPath, spec);
-    sqlite.commitConfig(this.getDb(), spec);
-    return spec;
-  }
-
-  listConfigs(options = {}) {
-    return sqlite.listConfigs(this.getDb(), options);
-  }
-
-  listConfigCommits(options = {}) {
-    return sqlite.listConfigCommits(this.getDb(), options);
-  }
-
-  getConfig(idOrName, options = {}) {
-    return sqlite.getConfig(this.getDb(), idOrName, options);
-  }
-
   search(query, options = {}) {
     return sqlite.searchEvents(this.getDb(), query, options);
   }
@@ -522,46 +345,6 @@ class TraceStore {
     return readJsonl(this.tasksPath);
   }
 
-  readJudgeLog() {
-    return readJsonl(this.judgesPath);
-  }
-
-  readEvaluationLog() {
-    return readJsonl(this.evaluationsPath);
-  }
-
-  readBehaviorLog() {
-    return readJsonl(this.behaviorsPath);
-  }
-
-  readBehaviorResultLog() {
-    return readJsonl(this.behaviorResultsPath);
-  }
-
-  readDatasetLog() {
-    return readJsonl(this.datasetsPath);
-  }
-
-  readDatasetItemLog() {
-    return readJsonl(this.datasetItemsPath);
-  }
-
-  readBucketLog() {
-    return readJsonl(this.bucketsPath);
-  }
-
-  readRuleLog() {
-    return readJsonl(this.rulesPath);
-  }
-
-  readAlertLog() {
-    return readJsonl(this.alertsPath);
-  }
-
-  readConfigLog() {
-    return readJsonl(this.configsPath);
-  }
-
   storeSize() {
     const now = Date.now();
     if (!this.sizeCache || now - this.sizeCache.at > 60000) {
@@ -601,9 +384,6 @@ class TraceStore {
     return sqlite.listSessionMetrics(this.getDb(), options);
   }
 
-  listWorkflowLessons(options = {}) {
-    return sqlite.listWorkflowLessons(this.getDb(), options);
-  }
 }
 
 function fileSize(file) {
@@ -624,15 +404,6 @@ function fastStoreSize(dir) {
     "sessions.jsonl",
     "imports.jsonl",
     "summaries.jsonl",
-    "judges.jsonl",
-    "evaluations.jsonl",
-    "behaviors.jsonl",
-    "behavior-results.jsonl",
-    "datasets.jsonl",
-    "dataset-items.jsonl",
-    "rules.jsonl",
-    "alerts.jsonl",
-    "configs.jsonl",
     "key"
   ].reduce((sum, name) => sum + fileSize(path.join(dir, name)), 0);
 }

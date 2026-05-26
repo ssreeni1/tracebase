@@ -1,11 +1,6 @@
 "use strict";
 
 const { TraceStore } = require("./storage");
-const { makeJudgeSpec, makeBehaviorSpec, evaluateJudge } = require("./judges");
-const { makeDatasetSpec, makeBucketSpec, runBucket } = require("./datasets");
-const { makeRuleSpec, evaluateRule } = require("./rules");
-const { compareSessions, compareDatasets } = require("./regression");
-const { makeConfigCommit } = require("./registry");
 
 const JSONRPC = "2.0";
 
@@ -49,121 +44,22 @@ const READ_TOOLS = [
     sessionId: { type: "string" },
     spanType: { type: "string" },
     limit: { type: "number" }
-  }),
-  tool("list_behaviors", "List behavior definitions and detection counts.", {
-    judgeId: { type: "string" },
-    limit: { type: "number" }
-  }),
-  tool("list_behavior_results", "List behavior detections.", {
-    behaviorId: { type: "string" },
-    sessionId: { type: "string" },
-    traceId: { type: "string" },
-    limit: { type: "number" }
-  }),
-  tool("list_datasets", "List trace datasets.", {
-    limit: { type: "number" }
-  }),
-  tool("list_dataset_items", "List dataset items.", {
-    datasetId: { type: "string" },
-    sessionId: { type: "string" },
-    traceId: { type: "string" },
-    limit: { type: "number" }
-  }),
-  tool("list_alerts", "List fired alert records.", {
-    ruleId: { type: "string" },
-    behaviorId: { type: "string" },
-    sessionId: { type: "string" },
-    limit: { type: "number" }
-  }),
-  tool("compare_sessions", "Compare two sessions for regressions.", {
-    before: { type: "string" },
-    after: { type: "string" }
-  }, ["before", "after"]),
-  tool("compare_datasets", "Compare two datasets for regressions.", {
-    before: { type: "string" },
-    after: { type: "string" }
-  }, ["before", "after"]),
-  tool("get_config", "Fetch a prompt/config by name/id, optionally by tag or commit.", {
-    config: { type: "string" },
-    tag: { type: "string" },
-    commitId: { type: "string" }
-  }, ["config"])
+  })
 ];
 
-const WRITE_TOOLS = [
-  tool("create_judge", "Create or update a local regex judge.", {
-    name: { type: "string" },
-    pattern: { type: "string" },
-    rubric: { type: "string" },
-    runner: { type: "string", enum: ["codex", "claude"] },
-    description: { type: "string" },
-    spanType: { type: "string" },
-    version: { type: "number" }
-  }, ["name"]),
-  tool("evaluate_judge", "Evaluate spans with a local judge and record evaluation results.", {
-    judge: { type: "string" },
-    sessionId: { type: "string" },
-    traceId: { type: "string" },
-    version: { type: "number" },
-    limit: { type: "number" }
-  }, ["judge"]),
-  tool("create_behavior", "Create or update a behavior backed by a judge.", {
-    name: { type: "string" },
-    judgeId: { type: "string" },
-    description: { type: "string" }
-  }, ["name", "judgeId"]),
-  tool("create_dataset", "Create or update a trace dataset.", {
-    name: { type: "string" },
-    description: { type: "string" },
-    kind: { type: "string" }
-  }, ["name"]),
-  tool("create_bucket", "Create or update a behavior-to-dataset bucket.", {
-    name: { type: "string" },
-    datasetId: { type: "string" },
-    behaviorId: { type: "string" },
-    description: { type: "string" },
-    enabled: { type: "boolean" }
-  }, ["name", "datasetId", "behaviorId"]),
-  tool("run_bucket", "Route matching behavior detections into a dataset.", {
-    bucket: { type: "string" },
-    sessionId: { type: "string" },
-    traceId: { type: "string" },
-    limit: { type: "number" }
-  }, ["bucket"]),
-  tool("create_rule", "Create or update an alert rule over behavior detections.", {
-    name: { type: "string" },
-    behaviorId: { type: "string" },
-    minCount: { type: "number" },
-    description: { type: "string" },
-    enabled: { type: "boolean" }
-  }, ["name", "behaviorId"]),
-  tool("run_rule", "Evaluate one alert rule and record matching alerts.", {
-    rule: { type: "string" },
-    sessionId: { type: "string" },
-    traceId: { type: "string" },
-    limit: { type: "number" }
-  }, ["rule"]),
-  tool("commit_config", "Commit a versioned prompt or agent config.", {
-    name: { type: "string" },
-    kind: { type: "string" },
-    content: { type: "string" },
-    message: { type: "string" },
-    tags: { type: "array", items: { type: "string" } }
-  }, ["name", "content"])
-];
+const WRITE_TOOLS = [];
+const WRITE_TOOL_NAMES = new Set();
 
-const WRITE_TOOL_NAMES = new Set(WRITE_TOOLS.map((item) => item.name));
-
-function toolsForOptions(options = {}) {
-  return options.allowWrite ? [...READ_TOOLS, ...WRITE_TOOLS] : READ_TOOLS;
+function toolsForOptions() {
+  return READ_TOOLS;
 }
 
-function toolByName(name, options = {}) {
-  return toolsForOptions(options).find((item) => item.name === name) || null;
+function toolByName(name) {
+  return READ_TOOLS.find((item) => item.name === name) || null;
 }
 
-function validateArgs(name, args = {}, options = {}) {
-  const spec = toolByName(name, options);
+function validateArgs(name, args = {}) {
+  const spec = toolByName(name);
   if (!spec) return args;
   const input = args && typeof args === "object" && !Array.isArray(args) ? args : {};
   const allowed = new Set(Object.keys(spec.inputSchema.properties || {}));
@@ -176,11 +72,8 @@ function validateArgs(name, args = {}, options = {}) {
   return input;
 }
 
-function callTool(store, name, args = {}, options = {}) {
-  if (WRITE_TOOL_NAMES.has(name) && !options.allowWrite) {
-    throw new Error(`MCP tool ${name} requires explicit --allow-write.`);
-  }
-  args = validateArgs(name, args, options);
+function callTool(store, name, args = {}) {
+  args = validateArgs(name, args);
   switch (name) {
     case "stats":
       return store.stats();
@@ -190,70 +83,9 @@ function callTool(store, name, args = {}, options = {}) {
       return store.listTraces(args);
     case "list_spans":
       return store.listSpans(args);
-    case "list_behaviors":
-      return store.listBehaviors(args);
-    case "list_behavior_results":
-      return store.listBehaviorResults(args);
-    case "create_judge": {
-      const spec = makeJudgeSpec(args);
-      store.upsertJudge(spec);
-      return spec;
-    }
-    case "evaluate_judge":
-      return summarizeJudgeRun(evaluateJudge(store, args.judge, args));
-    case "create_behavior": {
-      const behavior = makeBehaviorSpec(args);
-      store.upsertBehavior(behavior);
-      return behavior;
-    }
-    case "create_dataset": {
-      const dataset = makeDatasetSpec(args);
-      store.upsertDataset(dataset);
-      return dataset;
-    }
-    case "list_datasets":
-      return store.listDatasets(args);
-    case "list_dataset_items":
-      return store.listDatasetItems(args);
-    case "create_bucket": {
-      const bucket = makeBucketSpec(args);
-      store.upsertBucket(bucket);
-      return bucket;
-    }
-    case "run_bucket":
-      return runBucket(store, args.bucket, args);
-    case "create_rule": {
-      const rule = makeRuleSpec(args);
-      store.upsertRule(rule);
-      return rule;
-    }
-    case "run_rule":
-      return evaluateRule(store, args.rule, args);
-    case "list_alerts":
-      return store.listAlerts(args);
-    case "compare_sessions":
-      return compareSessions(store, args.before, args.after);
-    case "compare_datasets":
-      return compareDatasets(store, args.before, args.after);
-    case "commit_config": {
-      const spec = makeConfigCommit(args);
-      store.commitConfig(spec);
-      return spec;
-    }
-    case "get_config":
-      return store.getConfig(args.config, { tag: args.tag, commitId: args.commitId });
     default:
       throw new Error(`Unknown MCP tool: ${name}`);
   }
-}
-
-function summarizeJudgeRun(result) {
-  return {
-    judge: result.judge,
-    version: result.version,
-    evaluations: result.evaluations.length,
-    positive: result.evaluations.filter((row) => row.passed).length
-  };
 }
 
 function response(id, result) {
@@ -264,7 +96,7 @@ function errorResponse(id, code, message) {
   return { jsonrpc: JSONRPC, id: id == null ? null : id, error: { code, message } };
 }
 
-function handleMessage(store, message, options = {}) {
+function handleMessage(store, message) {
   if (!message || message.jsonrpc !== JSONRPC) return errorResponse(message && message.id, -32600, "Invalid JSON-RPC message.");
   const id = message.id;
   const params = message.params || {};
@@ -278,9 +110,9 @@ function handleMessage(store, message, options = {}) {
     }
     if (message.method === "notifications/initialized") return null;
     if (message.method === "ping") return response(id, {});
-    if (message.method === "tools/list") return response(id, { tools: toolsForOptions(options) });
+    if (message.method === "tools/list") return response(id, { tools: READ_TOOLS });
     if (message.method === "tools/call") {
-      const result = callTool(store, params.name, params.arguments || {}, options);
+      const result = callTool(store, params.name, params.arguments || {});
       return response(id, textResult(result));
     }
     if (message.method === "resources/list") return response(id, { resources: [] });
@@ -317,7 +149,6 @@ function parseFrames(buffer) {
 function runMcpServer(options = {}) {
   const store = options.store || new TraceStore();
   store.init();
-  const serverOptions = { allowWrite: Boolean(options.allowWrite || process.env.TRACEBASE_MCP_ALLOW_WRITE === "1") };
   const input = options.input || process.stdin;
   const output = options.output || process.stdout;
   let buffer = "";
@@ -327,7 +158,7 @@ function runMcpServer(options = {}) {
     const parsed = parseFrames(buffer);
     buffer = parsed.rest;
     for (const message of parsed.messages) {
-      const result = handleMessage(store, message, serverOptions);
+      const result = handleMessage(store, message);
       if (result) output.write(encodeFrame(result));
     }
   });
@@ -337,6 +168,7 @@ module.exports = {
   READ_TOOLS,
   TOOLS: READ_TOOLS,
   WRITE_TOOLS,
+  WRITE_TOOL_NAMES,
   callTool,
   encodeFrame,
   handleMessage,

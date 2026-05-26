@@ -5,7 +5,6 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { TraceStore } = require("./storage");
 const { buildDecisionLog } = require("./decision-log");
-const { compareDatasets, compareSessions } = require("./regression");
 const { listLlmObsSpans, listLlmObsTraces, llmObsTraceFromCanonical } = require("./llmobs");
 const { buildExportZip } = require("./export");
 const { availableSummaryRunners, latestSummary, listSummaries, summarizeSessionAsync } = require("./summaries");
@@ -365,103 +364,6 @@ function createServer(options = {}) {
     }
     if (url.pathname === "/api/session-metrics") {
       return sendJson(res, store.listSessionMetrics({ limit: queryLimit(url, 1000) }));
-    }
-    if (url.pathname === "/api/workflow-lessons") {
-      return sendJson(res, store.listWorkflowLessons({
-        limit: queryLimit(url, 1000),
-        category: url.searchParams.get("category") || null,
-        repo: url.searchParams.get("repo") || null
-      }));
-    }
-    if (url.pathname === "/api/judges") {
-      return sendJson(res, store.listJudges({ limit: queryLimit(url, 1000) }));
-    }
-    if (url.pathname === "/api/evaluations") {
-      return sendJson(res, store.listEvaluations({
-        limit: queryLimit(url, 1000),
-        judgeId: url.searchParams.get("judgeId") || null,
-        traceId: url.searchParams.get("traceId") || null,
-        sessionId: url.searchParams.get("sessionId") || null
-      }));
-    }
-    if (url.pathname === "/api/behaviors") {
-      return sendJson(res, store.listBehaviors({
-        limit: queryLimit(url, 1000),
-        judgeId: url.searchParams.get("judgeId") || null
-      }));
-    }
-    if (url.pathname === "/api/behavior-results") {
-      return sendJson(res, store.listBehaviorResults({
-        limit: queryLimit(url, 1000),
-        behaviorId: url.searchParams.get("behaviorId") || null,
-        traceId: url.searchParams.get("traceId") || null,
-        sessionId: url.searchParams.get("sessionId") || null
-      }));
-    }
-    if (url.pathname === "/api/datasets") {
-      return sendJson(res, store.listDatasets({ limit: queryLimit(url, 1000) }));
-    }
-    if (url.pathname === "/api/dataset-items") {
-      return sendJson(res, store.listDatasetItems({
-        limit: queryLimit(url, 1000),
-        datasetId: url.searchParams.get("datasetId") || null,
-        traceId: url.searchParams.get("traceId") || null,
-        sessionId: url.searchParams.get("sessionId") || null
-      }));
-    }
-    if (url.pathname === "/api/buckets") {
-      return sendJson(res, store.listBuckets({
-        limit: queryLimit(url, 1000),
-        datasetId: url.searchParams.get("datasetId") || null,
-        behaviorId: url.searchParams.get("behaviorId") || null
-      }));
-    }
-    if (url.pathname === "/api/rules") {
-      return sendJson(res, store.listRules({
-        limit: queryLimit(url, 1000),
-        behaviorId: url.searchParams.get("behaviorId") || null
-      }));
-    }
-    if (url.pathname === "/api/alerts") {
-      return sendJson(res, store.listAlerts({
-        limit: queryLimit(url, 1000),
-        ruleId: url.searchParams.get("ruleId") || null,
-        behaviorId: url.searchParams.get("behaviorId") || null,
-        sessionId: url.searchParams.get("sessionId") || null
-      }));
-    }
-    if (url.pathname === "/api/compare/sessions") {
-      const before = url.searchParams.get("before");
-      const after = url.searchParams.get("after");
-      if (!before || !after) return sendJson(res, { error: "missing_before_or_after" }, 400);
-      return sendJson(res, compareSessions(store, before, after));
-    }
-    if (url.pathname === "/api/compare/datasets") {
-      const before = url.searchParams.get("before");
-      const after = url.searchParams.get("after");
-      if (!before || !after) return sendJson(res, { error: "missing_before_or_after" }, 400);
-      return sendJson(res, compareDatasets(store, before, after));
-    }
-    if (url.pathname === "/api/configs") {
-      return sendJson(res, store.listConfigs({
-        limit: queryLimit(url, 1000),
-        kind: url.searchParams.get("kind") || null
-      }));
-    }
-    if (url.pathname === "/api/config-commits") {
-      return sendJson(res, store.listConfigCommits({
-        limit: queryLimit(url, 1000),
-        configId: url.searchParams.get("configId") || null
-      }));
-    }
-    if (url.pathname.startsWith("/api/configs/")) {
-      const id = decodePathSegment(url.pathname.slice("/api/configs/".length));
-      if (!id) return sendJson(res, { error: "invalid_path" }, 400);
-      const config = store.getConfig(id, {
-        tag: url.searchParams.get("tag") || null,
-        commitId: url.searchParams.get("commitId") || null
-      });
-      return config ? sendJson(res, config) : notFound(res);
     }
     if (url.pathname === "/api/sessions") {
       return sendJson(res, store.listSessions(queryOptions(url)));

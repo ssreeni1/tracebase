@@ -16,7 +16,7 @@ Tracebase is local-first agent observability software.
 - Normal API responses and redacted exports use the redaction layer.
 - Raw exports are intentionally possible, but should be treated as sensitive local data. The HTTP raw export path requires the `x-tracebase-raw-export: 1` header so raw export is not a linkable GET.
 - The raw blob HTTP API is disabled by default. Set `TRACEBASE_ALLOW_RAW_BLOB_API=1` only for local debugging where decrypted raw event reads over localhost are intended.
-- The MCP server is read-only by default. Start it with `traces mcp --allow-write` or `TRACEBASE_MCP_ALLOW_WRITE=1` only when the connected local agent should be allowed to create judges, datasets, rules, config commits, or other derived records.
+- The MCP server is read-only and exposes only trace search plus canonical trace/span listing.
 - MCP tool schemas reject undeclared arguments so clients cannot smuggle hidden command overrides through extension-tool calls.
 
 ## Reporting Issues
@@ -41,5 +41,5 @@ Do not include secrets or raw trace exports in public issues. Provide a minimal 
 - Verify static serving does not disclose paths outside the packaged dashboard.
 - Verify remote binding requires an explicit opt-in flag.
 - Verify raw export requires explicit local intent.
-- Verify MCP write tools require explicit local intent.
+- Verify MCP exposes only read-only trace tools.
 - Verify launchd watcher labels use the public `io.tracebase.watch` label, with legacy pre-release labels handled only for cleanup/status compatibility.

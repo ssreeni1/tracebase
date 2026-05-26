@@ -8,19 +8,12 @@ const { importAll, importJsonlFile } = require("./importers");
 const { listen } = require("./server");
 const { installClaudeHooks, printClaudeHookInstall, runHookCommand } = require("./hook");
 const { analyzeStore } = require("./analyze");
-const { distillWorkflows } = require("./workflow-intel");
 const { installWatch, uninstallWatch, watchStatus } = require("./daemon");
 const { SELF_TRACE_PROMPT, makeSelfTraceEvent, parseSelfTraceInput } = require("./self-trace");
 const { buildDecisionLog } = require("./decision-log");
 const { diffSourceFile, diffSession } = require("./trace-diff");
 const { takeNetSnapshot, makeNetSnapshotEvent } = require("./net-snapshot");
-const { evaluateJudge, makeBehaviorSpec, makeJudgeSpec } = require("./judges");
-const { makeBucketSpec, makeDatasetSpec, runBucket } = require("./datasets");
-const { evaluateRule, makeRuleSpec } = require("./rules");
-const { compareDatasets, compareSessions } = require("./regression");
-const { makeConfigCommit } = require("./registry");
 const { runMcpServer } = require("./mcp");
-const { installTemplate, listTemplates } = require("./templates");
 const { listLlmObsSpans, llmObsTraceFromCanonical } = require("./llmobs");
 const { redactText } = require("./redact");
 const { bootstrapText, installInstructions } = require("./bootstrap");
@@ -44,7 +37,6 @@ Commands:
   watch-uninstall       Remove persistent watcher
   index                 Rebuild SQLite/FTS query index from JSONL logs
   analyze               Annotate sessions for failures, resteers, loops, recoveries
-  distill               Extract workflow lessons from annotations
   stats                 Print trace store metrics
   health                Print capture health and known coverage limits
   recent                Print recent meaningful events as JSONL
@@ -56,28 +48,6 @@ Commands:
   spans                 Print canonical spans for --trace-id or --session-id
   llmobs-spans          Print Datadog LLMObs-compatible spans as JSONL
   llmobs-trace          Print one Datadog LLMObs-compatible trace as JSON
-  judge-create          Create/update a regex or CLI LLM judge
-  judge-run             Evaluate spans with a local judge
-  judges                Print local judges as JSONL
-  behavior-create       Create/update a behavior backed by a judge
-  behaviors             Print behaviors as JSONL
-  dataset-create        Create/update a trace dataset
-  datasets              Print datasets as JSONL
-  dataset-items         Print dataset items as JSONL
-  bucket-create         Create/update a behavior-to-dataset bucket
-  bucket-run            Route matching behavior results into a dataset
-  buckets               Print buckets as JSONL
-  rule-create           Create/update a behavior alert rule
-  rule-run              Evaluate one alert rule
-  rules                 Print alert rules as JSONL
-  alerts                Print alert records as JSONL
-  compare-sessions      Compare two sessions for regressions
-  compare-datasets      Compare two trace datasets for regressions
-  config-commit         Commit a prompt/config version
-  configs               Print prompt/config records as JSONL
-  config-show           Print one prompt/config version
-  template-list         Print built-in monitoring templates
-  template-install      Install a built-in or JSON template
   mcp                   Start the local read-only stdio MCP server
   net-snapshot          Capture metadata-only local TCP connection snapshot
   import-file <p> <f>   Import one JSONL transcript for provider p
@@ -107,12 +77,11 @@ Serve/security options:
   --host HOST           For serve/agent, default 127.0.0.1
   --allow-remote        Permit serve/agent to bind non-loopback hosts
   --allow-intake        Permit serve to accept POST /api/events|spans|intake
-  --allow-write         Permit MCP tools that mutate local judges/datasets/rules/configs
 
 Summary/export options:
   --list                For summarize, list saved summaries
   --cached              For summarize, reuse the latest saved summary when available
-  --runner codex|claude For summarize/judges, choose a local CLI runner
+  --runner codex|claude For summarize, choose a local CLI runner
   --out PATH            For export, write a zip bundle to PATH
   --raw                 For export, include raw decrypted events after explicit local intent
   --stdout              Write export zip bytes to stdout instead of --out PATH
@@ -257,7 +226,6 @@ async function main(args) {
       if (summary.imported) {
         const sessionIds = Array.from(new Set(results.map((row) => row.sessionId).filter(Boolean)));
         for (const sessionId of sessionIds) analyzeStore(store, { sessionId });
-        distillWorkflows(store, { limit: 50000 });
         console.log(`${new Date().toISOString()} imported=${summary.imported} skipped=${summary.skipped} files=${summary.files}`);
       }
       since = new Date(started.getTime() - intervalMs).toISOString();
@@ -303,14 +271,6 @@ async function main(args) {
       limit: readOption(args, "--limit") || 100000
     });
     console.log(`Analyzed ${result.sessions} sessions, wrote ${result.annotations} annotations in ${Date.now() - started}ms.`);
-    return;
-  }
-  if (command === "distill") {
-    const store = new TraceStore();
-    store.init();
-    const started = Date.now();
-    const result = distillWorkflows(store, { limit: readOption(args, "--limit") || 50000 });
-    console.log(`Distilled ${result.lessons} workflow lessons from ${result.annotationsRead} annotations in ${Date.now() - started}ms.`);
     return;
   }
   if (command === "stats") {
@@ -496,247 +456,8 @@ async function main(args) {
     process.stdout.write(JSON.stringify(llmObsTraceFromCanonical(trace, store.listSpans({ traceId: trace.id, limit: 50000 })), null, 2) + "\n");
     return;
   }
-  if (command === "judge-create") {
-    const store = new TraceStore();
-    store.init();
-    const spec = makeJudgeSpec({
-      name: readOption(args, "--name"),
-      description: readOption(args, "--description"),
-      pattern: readOption(args, "--pattern"),
-      rubric: readOption(args, "--rubric"),
-      runner: readOption(args, "--runner"),
-      prompt: readOption(args, "--prompt"),
-      flags: readOption(args, "--flags"),
-      spanType: readOption(args, "--span-type"),
-      timeoutMs: readOption(args, "--timeout-ms"),
-      maxSpans: readOption(args, "--max-spans"),
-      version: readOption(args, "--version") || 1
-    });
-    store.upsertJudge(spec);
-    process.stdout.write(JSON.stringify(spec, null, 2) + "\n");
-    return;
-  }
-  if (command === "judges") {
-    const store = new TraceStore();
-    store.init();
-    printRows(store.listJudges({ limit: readOption(args, "--limit") || 1000 }));
-    return;
-  }
-  if (command === "judge-run") {
-    const store = new TraceStore();
-    store.init();
-    const judgeId = readOption(args, "--judge") || args[1];
-    if (!judgeId) throw new Error("judge-run requires --judge ID_OR_NAME.");
-    const result = evaluateJudge(store, judgeId, {
-      version: readOption(args, "--version"),
-      traceId: readOption(args, "--trace-id"),
-      sessionId: readOption(args, "--session-id"),
-      limit: readOption(args, "--limit") || 50000
-    });
-    process.stdout.write(JSON.stringify({
-      judge: result.judge,
-      version: result.version,
-      evaluations: result.evaluations.length,
-      positive: result.evaluations.filter((row) => row.passed).length
-    }, null, 2) + "\n");
-    return;
-  }
-  if (command === "behavior-create") {
-    const store = new TraceStore();
-    store.init();
-    const behavior = makeBehaviorSpec({
-      name: readOption(args, "--name"),
-      judgeId: readOption(args, "--judge"),
-      description: readOption(args, "--description")
-    });
-    store.upsertBehavior(behavior);
-    process.stdout.write(JSON.stringify(behavior, null, 2) + "\n");
-    return;
-  }
-  if (command === "behaviors") {
-    const store = new TraceStore();
-    store.init();
-    printRows(store.listBehaviors({ limit: readOption(args, "--limit") || 1000, judgeId: readOption(args, "--judge") }));
-    return;
-  }
-  if (command === "dataset-create") {
-    const store = new TraceStore();
-    store.init();
-    const dataset = makeDatasetSpec({
-      name: readOption(args, "--name"),
-      description: readOption(args, "--description"),
-      kind: readOption(args, "--kind") || "trace"
-    });
-    store.upsertDataset(dataset);
-    process.stdout.write(JSON.stringify(dataset, null, 2) + "\n");
-    return;
-  }
-  if (command === "datasets") {
-    const store = new TraceStore();
-    store.init();
-    printRows(store.listDatasets({ limit: readOption(args, "--limit") || 1000 }));
-    return;
-  }
-  if (command === "dataset-items") {
-    const store = new TraceStore();
-    store.init();
-    printRows(store.listDatasetItems({
-      limit: readOption(args, "--limit") || 1000,
-      datasetId: readOption(args, "--dataset"),
-      traceId: readOption(args, "--trace-id"),
-      sessionId: readOption(args, "--session-id")
-    }));
-    return;
-  }
-  if (command === "bucket-create") {
-    const store = new TraceStore();
-    store.init();
-    const bucket = makeBucketSpec({
-      name: readOption(args, "--name"),
-      datasetId: readOption(args, "--dataset"),
-      behaviorId: readOption(args, "--behavior"),
-      description: readOption(args, "--description"),
-      enabled: !args.includes("--disabled")
-    });
-    store.upsertBucket(bucket);
-    process.stdout.write(JSON.stringify(bucket, null, 2) + "\n");
-    return;
-  }
-  if (command === "bucket-run") {
-    const store = new TraceStore();
-    store.init();
-    const bucketId = readOption(args, "--bucket") || args[1];
-    if (!bucketId) throw new Error("bucket-run requires --bucket ID_OR_NAME.");
-    const result = runBucket(store, bucketId, {
-      traceId: readOption(args, "--trace-id"),
-      sessionId: readOption(args, "--session-id"),
-      limit: readOption(args, "--limit") || 50000
-    });
-    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
-    return;
-  }
-  if (command === "buckets") {
-    const store = new TraceStore();
-    store.init();
-    printRows(store.listBuckets({
-      limit: readOption(args, "--limit") || 1000,
-      datasetId: readOption(args, "--dataset"),
-      behaviorId: readOption(args, "--behavior")
-    }));
-    return;
-  }
-  if (command === "rule-create") {
-    const store = new TraceStore();
-    store.init();
-    const rule = makeRuleSpec({
-      name: readOption(args, "--name"),
-      behaviorId: readOption(args, "--behavior"),
-      description: readOption(args, "--description"),
-      minCount: readOption(args, "--min-count") || 1,
-      enabled: !args.includes("--disabled")
-    });
-    store.upsertRule(rule);
-    process.stdout.write(JSON.stringify(rule, null, 2) + "\n");
-    return;
-  }
-  if (command === "rule-run") {
-    const store = new TraceStore();
-    store.init();
-    const ruleId = readOption(args, "--rule") || args[1];
-    if (!ruleId) throw new Error("rule-run requires --rule ID_OR_NAME.");
-    const result = evaluateRule(store, ruleId, {
-      traceId: readOption(args, "--trace-id"),
-      sessionId: readOption(args, "--session-id"),
-      limit: readOption(args, "--limit") || 50000
-    });
-    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
-    return;
-  }
-  if (command === "rules") {
-    const store = new TraceStore();
-    store.init();
-    printRows(store.listRules({ limit: readOption(args, "--limit") || 1000, behaviorId: readOption(args, "--behavior") }));
-    return;
-  }
-  if (command === "alerts") {
-    const store = new TraceStore();
-    store.init();
-    printRows(store.listAlerts({
-      limit: readOption(args, "--limit") || 1000,
-      ruleId: readOption(args, "--rule"),
-      behaviorId: readOption(args, "--behavior"),
-      sessionId: readOption(args, "--session-id")
-    }));
-    return;
-  }
-  if (command === "compare-sessions") {
-    const store = new TraceStore();
-    store.init();
-    const before = readOption(args, "--before") || args[1];
-    const after = readOption(args, "--after") || args[2];
-    if (!before || !after) throw new Error("compare-sessions requires --before SESSION and --after SESSION.");
-    process.stdout.write(JSON.stringify(compareSessions(store, before, after), null, 2) + "\n");
-    return;
-  }
-  if (command === "compare-datasets") {
-    const store = new TraceStore();
-    store.init();
-    const before = readOption(args, "--before") || args[1];
-    const after = readOption(args, "--after") || args[2];
-    if (!before || !after) throw new Error("compare-datasets requires --before DATASET and --after DATASET.");
-    process.stdout.write(JSON.stringify(compareDatasets(store, before, after), null, 2) + "\n");
-    return;
-  }
-  if (command === "config-commit") {
-    const store = new TraceStore();
-    store.init();
-    const content = readOption(args, "--content") || await readStdin();
-    const tags = [];
-    for (let i = 0; i < args.length; i += 1) {
-      if (args[i] === "--tag" && args[i + 1]) tags.push(args[i + 1]);
-    }
-    const spec = makeConfigCommit({
-      name: readOption(args, "--name"),
-      kind: readOption(args, "--kind") || "prompt",
-      description: readOption(args, "--description"),
-      message: readOption(args, "--message"),
-      content,
-      tags
-    });
-    store.commitConfig(spec);
-    process.stdout.write(JSON.stringify(spec, null, 2) + "\n");
-    return;
-  }
-  if (command === "configs") {
-    const store = new TraceStore();
-    store.init();
-    printRows(store.listConfigs({ limit: readOption(args, "--limit") || 1000, kind: readOption(args, "--kind") }));
-    return;
-  }
-  if (command === "config-show") {
-    const store = new TraceStore();
-    store.init();
-    const id = readOption(args, "--config") || args[1];
-    if (!id) throw new Error("config-show requires --config ID_OR_NAME.");
-    const config = store.getConfig(id, { tag: readOption(args, "--tag"), commitId: readOption(args, "--commit") });
-    if (!config) throw new Error(`Unknown config: ${id}`);
-    process.stdout.write(JSON.stringify(config, null, 2) + "\n");
-    return;
-  }
-  if (command === "template-list") {
-    printRows(listTemplates());
-    return;
-  }
-  if (command === "template-install") {
-    const name = readOption(args, "--template") || args[1];
-    if (!name) throw new Error("template-install requires --template NAME_OR_PATH.");
-    const store = new TraceStore();
-    store.init();
-    process.stdout.write(JSON.stringify(installTemplate(store, name), null, 2) + "\n");
-    return;
-  }
   if (command === "mcp") {
-    runMcpServer({ allowWrite: args.includes("--allow-write") });
+    runMcpServer();
     return;
   }
   if (command === "net-snapshot") {

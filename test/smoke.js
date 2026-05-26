@@ -16,12 +16,6 @@ const { makeSelfTraceEvent } = require("../src/self-trace");
 const { buildDecisionLog } = require("../src/decision-log");
 const { diffSourceFile } = require("../src/trace-diff");
 const { takeNetSnapshot } = require("../src/net-snapshot");
-const { evaluateJudge, makeBehaviorSpec, makeJudgeSpec } = require("../src/judges");
-const { makeBucketSpec, makeDatasetSpec, runBucket } = require("../src/datasets");
-const { evaluateRule, makeRuleSpec } = require("../src/rules");
-const { compareDatasets, compareSessions } = require("../src/regression");
-const { makeConfigCommit } = require("../src/registry");
-const { installTemplate, listTemplates } = require("../src/templates");
 const { listLlmObsSpans } = require("../src/llmobs");
 const { redactText } = require("../src/redact");
 const { bootstrapText, installInstructions } = require("../src/bootstrap");
@@ -100,108 +94,6 @@ async function main() {
   assert.equal(store.search("permission prompt", { sessionId: "live-session" }).length >= 1, true);
   const diff = diffSourceFile(store, path.join(__dirname, "fixtures", "claude.jsonl"));
   assert.equal(diff.complete, true);
-
-  const judgeSpec = makeJudgeSpec({ name: "Vite Mention", pattern: "vite" });
-  store.upsertJudge(judgeSpec);
-  const behavior = makeBehaviorSpec({ name: "Asked About Vite", judgeId: judgeSpec.judge.id });
-  store.upsertBehavior(behavior);
-  const judgeResult = evaluateJudge(store, judgeSpec.judge.id, { sessionId: "fixture-claude" });
-  assert.equal(judgeResult.evaluations.some((row) => row.passed), true);
-  assert.equal(store.listEvaluations({ judgeId: judgeSpec.judge.id }).some((row) => row.passed), true);
-  assert.equal(store.listBehaviors({ judgeId: judgeSpec.judge.id })[0].detectionCount >= 1, true);
-  assert.equal(store.listBehaviorResults({ behaviorId: behavior.id }).length >= 1, true);
-
-  const cliJudgeSpec = makeJudgeSpec({
-    name: "CLI Trace Quality",
-    rubric: "Pass when the trace packet includes a Vite-related span.",
-    runner: "custom",
-    command: process.execPath,
-    args: ["-e", "let s='';process.stdin.on('data',c=>s+=c);process.stdin.on('end',()=>{const passed=s.includes('vite'); console.log(JSON.stringify({score: passed ? 1 : 0, passed, label: passed ? 'vite-present' : 'vite-missing', reason: passed ? 'Trace mentions vite.' : 'Trace does not mention vite.', evidence_spans: []}));});"]
-  });
-  store.upsertJudge(cliJudgeSpec);
-  const cliJudgeResult = evaluateJudge(store, cliJudgeSpec.judge.id, { sessionId: "fixture-claude" });
-  assert.equal(cliJudgeResult.evaluations.length, 1);
-  assert.equal(cliJudgeResult.evaluations[0].passed, 1);
-  assert.equal(cliJudgeResult.evaluations[0].label, "vite-present");
-
-  const dataset = makeDatasetSpec({ name: "Vite Regression Cases", description: "Traces where the Vite behavior fired." });
-  store.upsertDataset(dataset);
-  const bucket = makeBucketSpec({ name: "Vite Behavior Bucket", datasetId: dataset.id, behaviorId: behavior.id });
-  store.upsertBucket(bucket);
-  const bucketResult = runBucket(store, bucket.id);
-  assert.equal(bucketResult.added >= 1, true);
-  assert.equal(store.listDatasets()[0].itemCount >= 1, true);
-  assert.equal(store.listDatasetItems({ datasetId: dataset.id }).some((row) => row.sessionId === "fixture-claude"), true);
-
-  const rule = makeRuleSpec({ name: "Vite Behavior Alert", behaviorId: behavior.id, minCount: 1 });
-  store.upsertRule(rule);
-  const ruleResult = evaluateRule(store, rule.id, { sessionId: "fixture-claude" });
-  assert.equal(ruleResult.triggered, true);
-  assert.equal(store.listRules({ behaviorId: behavior.id })[0].enabled, true);
-  assert.equal(store.listAlerts({ ruleId: rule.id }).length >= 1, true);
-
-  const regressed = store.addEvent({
-    provider: "test",
-    sessionId: "regressed-session",
-    taskId: "regressed-session",
-    type: "tool_result",
-    role: "tool",
-    cwd: "/tmp/project",
-    sourcePath: "generated-regression",
-    offset: 1,
-    timestamp: "2026-05-18T10:10:00.000Z",
-    summary: "command failed exit code 1 vite",
-    searchText: "command failed with exit code 1 while running vite"
-  });
-  store.upsertSession({
-    id: "regressed-session",
-    provider: "test",
-    sourcePath: "generated-regression",
-    cwd: "/tmp/project",
-    startedAt: regressed.timestamp,
-    endedAt: regressed.timestamp,
-    eventCount: 1,
-    project: "regression"
-  });
-  evaluateJudge(store, judgeSpec.judge.id, { sessionId: "regressed-session" });
-  evaluateRule(store, rule.id, { sessionId: "regressed-session" });
-  const sessionComparison = compareSessions(store, "fixture-claude", "regressed-session");
-  assert.equal(sessionComparison.deltas.errorSpanCount.delta >= 1, true);
-  assert.equal(sessionComparison.regressions.some((row) => row.kind === "errors_increased"), true);
-
-  const afterDataset = makeDatasetSpec({ name: "Vite Regressed Cases" });
-  store.upsertDataset(afterDataset);
-  store.addDatasetItem({
-    id: "dataset-item-regressed-session",
-    datasetId: afterDataset.id,
-    traceId: "session:regressed-session",
-    sessionId: "regressed-session",
-    spanId: null,
-    source: "smoke",
-    sourceId: "smoke",
-    label: "regressed",
-    note: "generated regression case",
-    createdAt: new Date().toISOString()
-  });
-  const datasetComparison = compareDatasets(store, dataset.id, afterDataset.id);
-  assert.equal(datasetComparison.deltas.errorSpanCount.delta >= 1, true);
-
-  const configCommit = makeConfigCommit({
-    name: "Agent Prompt",
-    kind: "prompt",
-    content: "Use tools carefully.",
-    message: "baseline prompt",
-    tags: ["prod"]
-  });
-  store.commitConfig(configCommit);
-  const fetchedConfig = store.getConfig("Agent Prompt", { tag: "prod" });
-  assert.equal(fetchedConfig.commit.content, "Use tools carefully.");
-  assert.equal(store.listConfigs({ kind: "prompt" }).some((row) => row.id === configCommit.config.id), true);
-
-  assert.equal(listTemplates().some((row) => row.name === "coding-agent-baseline"), true);
-  const templateResult = installTemplate(store, "coding-agent-baseline");
-  assert.equal(templateResult.installed.judges >= 1, true);
-  assert.equal(store.listDatasets().some((row) => row.id === "dataset:store-reliability-regressions"), true);
 
   const selfTrace = store.addEvent(makeSelfTraceEvent({
     goal: "verify trace observability",
@@ -353,30 +245,10 @@ async function main() {
     body: JSON.stringify({ id: "live-event-2", session_id: "live-session", provider: "codex", type: "note", message: "server intake event" })
   }).then((r) => r.json());
   assert.equal(postEvent.accepted, 1);
-  const judges = await fetch(`http://127.0.0.1:${port}/api/judges`).then((r) => r.json());
-  assert.equal(judges.some((row) => row.id === judgeSpec.judge.id), true);
-  const behaviorRows = await fetch(`http://127.0.0.1:${port}/api/behaviors?judgeId=${encodeURIComponent(judgeSpec.judge.id)}`).then((r) => r.json());
-  assert.equal(behaviorRows[0].detectionCount >= 1, true);
-  const evalRows = await fetch(`http://127.0.0.1:${port}/api/evaluations?judgeId=${encodeURIComponent(judgeSpec.judge.id)}`).then((r) => r.json());
-  assert.equal(evalRows.some((row) => row.passed), true);
-  const datasets = await fetch(`http://127.0.0.1:${port}/api/datasets`).then((r) => r.json());
-  assert.equal(datasets.some((row) => row.id === dataset.id && row.itemCount >= 1), true);
-  const datasetItems = await fetch(`http://127.0.0.1:${port}/api/dataset-items?datasetId=${encodeURIComponent(dataset.id)}`).then((r) => r.json());
-  assert.equal(datasetItems.some((row) => row.sessionId === "fixture-claude"), true);
-  const buckets = await fetch(`http://127.0.0.1:${port}/api/buckets?datasetId=${encodeURIComponent(dataset.id)}`).then((r) => r.json());
-  assert.equal(buckets.some((row) => row.id === bucket.id && row.enabled), true);
-  const rules = await fetch(`http://127.0.0.1:${port}/api/rules?behaviorId=${encodeURIComponent(behavior.id)}`).then((r) => r.json());
-  assert.equal(rules.some((row) => row.id === rule.id && row.enabled), true);
-  const alerts = await fetch(`http://127.0.0.1:${port}/api/alerts?ruleId=${encodeURIComponent(rule.id)}`).then((r) => r.json());
-  assert.equal(alerts.some((row) => row.sessionId === "fixture-claude"), true);
-  const sessionCompare = await fetch(`http://127.0.0.1:${port}/api/compare/sessions?before=fixture-claude&after=regressed-session`).then((r) => r.json());
-  assert.equal(sessionCompare.regressions.some((row) => row.kind === "errors_increased"), true);
-  const datasetCompare = await fetch(`http://127.0.0.1:${port}/api/compare/datasets?before=${encodeURIComponent(dataset.id)}&after=${encodeURIComponent(afterDataset.id)}`).then((r) => r.json());
-  assert.equal(datasetCompare.deltas.errorSpanCount.delta >= 1, true);
-  const configs = await fetch(`http://127.0.0.1:${port}/api/configs?kind=prompt`).then((r) => r.json());
-  assert.equal(configs.some((row) => row.id === configCommit.config.id), true);
-  const configShow = await fetch(`http://127.0.0.1:${port}/api/configs/${encodeURIComponent(configCommit.config.id)}?tag=prod`).then((r) => r.json());
-  assert.equal(configShow.commit.content, "Use tools carefully.");
+  const removedEvalApi = await fetch(`http://127.0.0.1:${port}/api/judges`);
+  assert.equal(removedEvalApi.status, 404);
+  const removedConfigApi = await fetch(`http://127.0.0.1:${port}/api/configs`);
+  assert.equal(removedConfigApi.status, 404);
   const health = await fetch(`http://127.0.0.1:${port}/api/health`).then((r) => r.json());
   assert.equal(health.coverage.hiddenPrivateReasoningCaptured, false);
   const recent = await fetch(`http://127.0.0.1:${port}/api/recent?limit=5`).then((r) => r.json());
@@ -636,9 +508,8 @@ async function main() {
     { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "smoke", version: "0" } } },
     { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
     { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "search_events", arguments: { query: "vite", limit: 5 } } },
-    { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "compare_sessions", arguments: { before: "fixture-claude", after: "regressed-session" } } },
-    { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "get_config", arguments: { config: "Agent Prompt", tag: "prod" } } },
-    { jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "create_dataset", arguments: { name: "MCP Write Should Be Blocked" } } }
+    { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "list_spans", arguments: { sessionId: "fixture-claude", limit: 5 } } },
+    { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "create_dataset", arguments: { name: "Removed OSS Tool" } } }
   ].map(encodeFrame).join("");
   const mcp = spawnSync(process.execPath, [path.join(__dirname, "..", "bin", "traces.js"), "mcp"], {
     env: { ...process.env, TRACE_HOME: home },
@@ -647,36 +518,16 @@ async function main() {
   });
   assert.equal(mcp.status, 0, mcp.stderr);
   const mcpMessages = parseFrames(mcp.stdout).messages;
-  assert.equal(mcpMessages.find((msg) => msg.id === 2).result.tools.some((tool) => tool.name === "compare_sessions"), true);
+  assert.equal(mcpMessages.find((msg) => msg.id === 2).result.tools.some((tool) => tool.name === "list_spans"), true);
   assert.equal(mcpMessages.find((msg) => msg.id === 2).result.tools.some((tool) => tool.name === "create_dataset"), false);
   assert.equal(mcpMessages.find((msg) => msg.id === 2).result.tools.every((tool) => tool.inputSchema.additionalProperties === false), true);
   const searchPayload = JSON.parse(mcpMessages.find((msg) => msg.id === 3).result.content[0].text);
   assert.equal(searchPayload.length >= 1, true);
-  const comparePayload = JSON.parse(mcpMessages.find((msg) => msg.id === 4).result.content[0].text);
-  assert.equal(comparePayload.regressions.some((row) => row.kind === "errors_increased"), true);
-  const configPayload = JSON.parse(mcpMessages.find((msg) => msg.id === 5).result.content[0].text);
-  assert.equal(configPayload.commit.content, "Use tools carefully.");
-  assert.equal(mcpMessages.find((msg) => msg.id === 6).error.message.includes("--allow-write"), true);
-  const mcpWriteList = [
-    { jsonrpc: "2.0", id: 1, method: "initialize", params: {} },
-    { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
-    { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "create_judge", arguments: { name: "Blocked Custom Command", pattern: "vite", command: process.execPath } } }
-  ].map(encodeFrame).join("");
-  const mcpWrite = spawnSync(process.execPath, [path.join(__dirname, "..", "bin", "traces.js"), "mcp", "--allow-write"], {
-    env: { ...process.env, TRACE_HOME: home },
-    input: mcpWriteList,
-    encoding: "utf8"
-  });
-  assert.equal(mcpWrite.status, 0, mcpWrite.stderr);
-  const mcpWriteTools = parseFrames(mcpWrite.stdout).messages.find((msg) => msg.id === 2).result.tools;
-  assert.equal(mcpWriteTools.some((tool) => tool.name === "create_dataset"), true);
-  assert.equal(mcpWriteTools.every((tool) => tool.inputSchema.additionalProperties === false), true);
-  const mcpWriteMessages = parseFrames(mcpWrite.stdout).messages;
-  assert.equal(mcpWriteMessages.find((msg) => msg.id === 3).error.message.includes("Unexpected MCP argument"), true);
+  const spanPayload = JSON.parse(mcpMessages.find((msg) => msg.id === 4).result.content[0].text);
+  assert.equal(spanPayload.some((span) => span.sessionId === "fixture-claude"), true);
+  assert.equal(mcpMessages.find((msg) => msg.id === 5).error.message.includes("Unknown MCP tool"), true);
 
   fs.appendFileSync(store.indexPath, "{partial-json\n");
-  fs.appendFileSync(store.judgesPath, "{partial-json\n");
-  fs.appendFileSync(store.datasetsPath, "{partial-json\n");
   store.rebuildIndex();
   assert.equal(store.search("vite").length >= 1, true);
   assert.equal(store.listSpans({ traceId: "trace-live-1" }).some((span) => span.id === "live-root"), true);
