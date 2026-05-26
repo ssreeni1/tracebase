@@ -7,10 +7,12 @@ import {
   Clock,
   Download,
   Filter,
+  Moon,
   RefreshCcw,
   Search,
   Shield,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Sun
 } from "lucide-react";
 import "./styles.css";
 
@@ -84,14 +86,27 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function initialTheme() {
+  const stored = localStorage.getItem("tracebase-theme");
+  if (stored === "light" || stored === "dark") return stored;
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+function providerLabel(provider) {
+  if (provider === "hook") return "Claude hook";
+  return provider;
+}
+
 function App() {
   const [filters, setFilters] = useState(() => filtersFromSearch(location.search));
+  const [theme, setTheme] = useState(initialTheme);
   const [stats, setStats] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [events, setEvents] = useState([]);
   const [spans, setSpans] = useState([]);
   const [summary, setSummary] = useState(null);
   const [summaryRunners, setSummaryRunners] = useState([]);
+  const [cwdOptions, setCwdOptions] = useState([]);
   const [active, setActive] = useState("");
   const [rawUnlocked, setRawUnlocked] = useState(false);
   const [summaryRunner, setSummaryRunner] = useState("codex");
@@ -103,6 +118,15 @@ function App() {
 
   const providers = useMemo(() => (stats?.byProvider || []).map((row) => row.provider).filter(Boolean), [stats]);
   const types = useMemo(() => (stats?.byType || []).map((row) => row.type).filter(Boolean), [stats]);
+  const cwdValues = useMemo(() => {
+    const values = cwdOptions.map((row) => row.cwd).filter(Boolean);
+    if (filters.cwd && !values.includes(filters.cwd)) values.unshift(filters.cwd);
+    return values;
+  }, [cwdOptions, filters.cwd]);
+
+  useEffect(() => {
+    localStorage.setItem("tracebase-theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     filtersRef.current = filters;
@@ -154,6 +178,7 @@ function App() {
       const firstAvailable = runners.find((runner) => runner.available);
       if (firstAvailable) setSummaryRunner(firstAvailable.runner);
     });
+    api("/api/cwds", []).then((rows) => setCwdOptions(rows || []));
     const timer = setInterval(() => load(filtersRef.current, activeRef.current), 60000);
     return () => clearInterval(timer);
   }, []);
@@ -217,7 +242,7 @@ function App() {
     : `Proxy this session packet to the local ${selectedRunner?.label || summaryRunner} process`;
 
   return (
-    <div className="shell">
+    <div className="shell" data-theme={theme}>
       <header className="topbar">
         <div className="brand">
           <Activity size={22} />
@@ -230,13 +255,16 @@ function App() {
           <Search size={16} />
           <input value={filters.q} onChange={(e) => updateFilter("q", e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder="Search sessions, prompts, tools, files" />
         </div>
-        <button onClick={() => load()} className="iconButton" title="Refresh"><RefreshCcw size={16} /></button>
+        <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="iconButton" title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>
+          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
+        <button onClick={() => load()} className="iconButton" title="Refresh" aria-label="Refresh"><RefreshCcw size={16} /></button>
       </header>
 
       <section className="toolbar">
-        <label><Filter size={14} /> Provider<select value={filters.provider} onChange={(e) => updateFilter("provider", e.target.value)}><option value="">All</option>{providers.map((p) => <option key={p}>{p}</option>)}</select></label>
+        <label><Filter size={14} /> Provider<select value={filters.provider} onChange={(e) => updateFilter("provider", e.target.value)}><option value="">All</option>{providers.map((p) => <option key={p} value={p}>{providerLabel(p)}</option>)}</select></label>
         <label>Type<select value={filters.type} onChange={(e) => updateFilter("type", e.target.value)}><option value="">All</option>{types.map((t) => <option key={t}>{t}</option>)}</select></label>
-        <label>CWD<input value={filters.cwd} onChange={(e) => updateFilter("cwd", e.target.value)} placeholder="/repo/path" /></label>
+        <label>CWD<select value={filters.cwd} onChange={(e) => updateFilter("cwd", e.target.value)}><option value="">All local directories</option>{cwdValues.map((cwd) => <option key={cwd} value={cwd}>{cwd}</option>)}</select></label>
         <label>From<input type="datetime-local" value={filters.from} onChange={(e) => updateFilter("from", e.target.value)} /></label>
         <label>To<input type="datetime-local" value={filters.to} onChange={(e) => updateFilter("to", e.target.value)} /></label>
         <label><SlidersHorizontal size={14} /> Sort<select value={filters.sort} onChange={(e) => updateFilter("sort", e.target.value)}><option value="time">Time</option><option value="events">Events</option><option value="provider">Provider</option></select></label>
@@ -249,7 +277,7 @@ function App() {
           <div className="panelTitle"><Clock size={15} /> Sessions <span>{sessions.length}</span></div>
           {sessions.map((session) => (
             <button key={session.id} className={`session ${session.id === active ? "active" : ""}`} onClick={() => load(filters, session.id)}>
-              <span>{session.provider}</span>
+              <span>{providerLabel(session.provider)}</span>
               <strong>{session.id}</strong>
               <small>{session.cwd || session.project || session.sourcePath || "no cwd"}</small>
               <small>Last {fmt(sessionTime(session))} · {session.eventCount || 0} events</small>
@@ -292,7 +320,7 @@ function App() {
             <h2>Events</h2>
             {events.map((event) => (
               <article key={event.id}>
-                <div><b>{event.type}</b><span>{event.provider}</span><time>{fmt(event.timestamp)}</time></div>
+                <div><b>{event.type}</b><span>{providerLabel(event.provider)}</span><time>{fmt(event.timestamp)}</time></div>
                 <p>{event.summary}</p>
                 <pre>{event.searchText}</pre>
               </article>

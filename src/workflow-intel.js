@@ -58,21 +58,6 @@ function lessonFromAnnotation(row) {
     });
   }
 
-  if (/(Harness Gym|IFBench|proposer|task model|model that should be running)/i.test(text) && /(Codex CLI|GPT-?4\.?1|gpt-4\.1|proposer)/i.test(text)) {
-    return makeLesson({
-      category: "configuration",
-      scope: "repo",
-      repo,
-      title: "Remember model-role assignments",
-      lesson: "For Harness Gym runs, Codex CLI is the proposer and GPT-4.1-mini is the task model unless explicitly changed.",
-      evidence: [row.summary],
-      action: "Persist this as a repo-local config note and validate provider/model roles before launching experiments.",
-      confidence: 0.9,
-      sourceSessionId: row.sessionId,
-      sourceEventId: row.eventId
-    });
-  }
-
   if (row.kind === "loop") {
     return makeLesson({
       category: "tool",

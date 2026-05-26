@@ -466,6 +466,9 @@ function createServer(options = {}) {
     if (url.pathname === "/api/sessions") {
       return sendJson(res, store.listSessions(queryOptions(url)));
     }
+    if (url.pathname === "/api/cwds") {
+      return sendJson(res, store.listCwds({ limit: queryLimit(url, 250, 1000) }));
+    }
     if (url.pathname === "/api/traces") {
       return sendJson(res, store.listTraces({
         ...queryOptions(url),
