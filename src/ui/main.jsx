@@ -7,10 +7,12 @@ import {
   Clock,
   Download,
   Filter,
+  Moon,
   RefreshCcw,
   Search,
   Shield,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Sun
 } from "lucide-react";
 import "./styles.css";
 
@@ -84,8 +86,15 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function initialTheme() {
+  const stored = localStorage.getItem("tracebase-theme");
+  if (stored === "light" || stored === "dark") return stored;
+  return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
 function App() {
   const [filters, setFilters] = useState(() => filtersFromSearch(location.search));
+  const [theme, setTheme] = useState(initialTheme);
   const [stats, setStats] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [events, setEvents] = useState([]);
@@ -103,6 +112,10 @@ function App() {
 
   const providers = useMemo(() => (stats?.byProvider || []).map((row) => row.provider).filter(Boolean), [stats]);
   const types = useMemo(() => (stats?.byType || []).map((row) => row.type).filter(Boolean), [stats]);
+
+  useEffect(() => {
+    localStorage.setItem("tracebase-theme", theme);
+  }, [theme]);
 
   useEffect(() => {
     filtersRef.current = filters;
@@ -217,7 +230,7 @@ function App() {
     : `Proxy this session packet to the local ${selectedRunner?.label || summaryRunner} process`;
 
   return (
-    <div className="shell">
+    <div className="shell" data-theme={theme}>
       <header className="topbar">
         <div className="brand">
           <Activity size={22} />
@@ -230,7 +243,10 @@ function App() {
           <Search size={16} />
           <input value={filters.q} onChange={(e) => updateFilter("q", e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder="Search sessions, prompts, tools, files" />
         </div>
-        <button onClick={() => load()} className="iconButton" title="Refresh"><RefreshCcw size={16} /></button>
+        <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="iconButton" title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}>
+          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
+        <button onClick={() => load()} className="iconButton" title="Refresh" aria-label="Refresh"><RefreshCcw size={16} /></button>
       </header>
 
       <section className="toolbar">
