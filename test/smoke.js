@@ -291,6 +291,8 @@ async function main() {
   assert.equal(filteredSessions.every((row) => row.provider === "claude"), true);
   const contentMatchedSessions = await fetch(`http://127.0.0.1:${port}/api/sessions?provider=claude&q=vite`).then((r) => r.json());
   assert.equal(contentMatchedSessions.some((row) => row.id === "fixture-claude"), true);
+  const cwds = await fetch(`http://127.0.0.1:${port}/api/cwds`).then((r) => r.json());
+  assert.equal(cwds.some((row) => row.cwd === "/tmp/project" && row.sessionCount >= 1), true);
   const malformedSessionsResponse = await fetch(`http://127.0.0.1:${port}/api/sessions?limit=bad&offset=bad`);
   assert.equal(malformedSessionsResponse.status, 200);
   assert.equal(Array.isArray(await malformedSessionsResponse.json()), true);

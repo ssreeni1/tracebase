@@ -182,6 +182,10 @@ class TraceStore {
     return sqlite.listSessions(this.getDb(), options);
   }
 
+  listCwds(options = {}) {
+    return sqlite.listCwds(this.getDb(), options);
+  }
+
   listTasks(options = {}) {
     return sqlite.listTasks(this.getDb(), options);
   }

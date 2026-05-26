@@ -768,6 +768,18 @@ function listTasks(db, options = {}) {
   `).all({ $limit: limit });
 }
 
+function listCwds(db, options = {}) {
+  const limit = boundedInt(options.limit, 250, 1, 1000);
+  return db.prepare(`
+    SELECT cwd, COUNT(*) AS sessionCount, MAX(COALESCE(endedAt, updatedAt, startedAt)) AS latestAt
+    FROM sessions
+    WHERE cwd IS NOT NULL AND cwd != ''
+    GROUP BY cwd
+    ORDER BY latestAt DESC, sessionCount DESC, cwd ASC
+    LIMIT $limit
+  `).all({ $limit: limit });
+}
+
 function listTraces(db, options = {}) {
   const limit = boundedInt(options.limit, 1000, 1, 10000);
   const provider = options.provider || null;
@@ -1593,6 +1605,7 @@ module.exports = {
   searchEvents,
   listMeaningfulEvents,
   listSessions,
+  listCwds,
   listTasks,
   listTraces,
   getTrace,
