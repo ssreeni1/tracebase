@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+.env
+.traces/
+*.log
+*.err
+npm-debug.log*
+.gstack/
+.npm-cache/
+.playwright-mcp/

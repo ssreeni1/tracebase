@@ -1,0 +1,3 @@
+{"type":"user","session_id":"fixture-codex","cwd":"/tmp/project","message":"Implement the plan","timestamp":"2026-05-18T11:00:00.000Z"}
+{"type":"assistant","session_id":"fixture-codex","cwd":"/tmp/project","message":"I will inspect the repo first.","timestamp":"2026-05-18T11:00:01.000Z"}
+{"type":"tool_call","session_id":"fixture-codex","cwd":"/tmp/project","tool_name":"exec_command","tool_input":{"cmd":"ls -la"},"timestamp":"2026-05-18T11:00:02.000Z"}

@@ -1,0 +1,4 @@
+{"type":"user","session_id":"fixture-claude","cwd":"/tmp/project","message":{"role":"user","content":"Please inspect the build script"},"timestamp":"2026-05-18T10:00:00.000Z"}
+{"hook_event_name":"PreToolUse","session_id":"fixture-claude","cwd":"/tmp/project","tool_name":"Read","tool_input":{"file_path":"package.json"},"timestamp":"2026-05-18T10:00:01.000Z"}
+{"hook_event_name":"PostToolUse","session_id":"fixture-claude","cwd":"/tmp/project","tool_name":"Read","tool_response":{"content":"{\"scripts\":{\"build\":\"vite build\"}}"},"timestamp":"2026-05-18T10:00:02.000Z"}
+{"type":"assistant","session_id":"fixture-claude","cwd":"/tmp/project","message":{"role":"assistant","content":"The build script runs vite build."},"timestamp":"2026-05-18T10:00:03.000Z"}

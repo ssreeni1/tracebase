@@ -1,0 +1,65 @@
+{
+  "name": "tracebase-local",
+  "version": "0.1.0",
+  "private": false,
+  "description": "Secure local trace capture, search, visualization, summaries, and exports for Codex and Claude agents.",
+  "license": "MIT",
+  "keywords": [
+    "ai",
+    "agents",
+    "tracing",
+    "evals",
+    "codex",
+    "claude"
+  ],
+  "type": "commonjs",
+  "main": "index.js",
+  "bin": {
+    "tracebase": "./bin/tracebase.js",
+    "traces": "./bin/traces.js",
+    "tcodex": "./bin/tcodex.js",
+    "tclaude": "./bin/tclaude.js"
+  },
+  "scripts": {
+    "check": "node scripts/check-syntax.js",
+    "audit:release": "node scripts/release-audit.js",
+    "build": "vite build",
+    "prepack": "npm run build",
+    "test": "npm run check && npm run audit:release && npm run smoke && npm run test:stress && npm run test:ui && npm run test:e2e-local && npm run test:package && npm run test:install",
+    "test:ui": "npm run build && node test/ui-smoke.js",
+    "test:e2e-local": "npm run build && node scripts/e2e-local.js",
+    "test:package": "npm_config_cache=.npm-cache npm pack --dry-run",
+    "test:install": "node scripts/package-install-smoke.js",
+    "smoke": "node test/smoke.js",
+    "test:stress": "node scripts/stress.js --events 4000 --writers 2",
+    "stress": "node scripts/stress.js",
+    "serve": "node bin/traces.js serve",
+    "import": "node bin/traces.js import"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "files": [
+    "ARCHITECTURE.md",
+    "CONTRIBUTING.md",
+    "NOTICE.md",
+    "README.md",
+    "SECURITY.md",
+    "index.js",
+    "bin/",
+    "dist/",
+    "src/",
+    "!src/ui/",
+    "templates/"
+  ],
+  "dependencies": {
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.2",
+    "lucide-react": "^1.16.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "vite": "^8.0.14"
+  }
+}
