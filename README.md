@@ -3,11 +3,11 @@
 Secure, local-first trace capture and inspection for Codex and Claude agent sessions.
 
 <p>
-  <img alt="Code License" src="https://img.shields.io/badge/code-MIT-3fb950?style=for-the-badge">
-  <img alt="Runtime" src="https://img.shields.io/badge/node-%3E%3D24-339933?style=for-the-badge&logo=node.js&logoColor=white">
-  <img alt="Local First" src="https://img.shields.io/badge/local--first-private-0969da?style=for-the-badge">
-  <img alt="MCP" src="https://img.shields.io/badge/MCP-read--only-f778ba?style=for-the-badge">
-  <img alt="Agents" src="https://img.shields.io/badge/agents-Claude%20%2B%20Codex-8957e5?style=for-the-badge">
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-3fb950?style=for-the-badge"></a>
+  <a href="CONTRIBUTING.md"><img alt="Contributing" src="https://img.shields.io/badge/contributing-guide-0969da?style=for-the-badge"></a>
+  <a href="SECURITY.md"><img alt="Security" src="https://img.shields.io/badge/security-policy-f778ba?style=for-the-badge"></a>
+  <a href="TESTING.md"><img alt="Testing" src="https://img.shields.io/badge/testing-checklist-8957e5?style=for-the-badge"></a>
+  <a href="package.json"><img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D24-339933?style=for-the-badge&logo=node.js&logoColor=white"></a>
 </p>
 
 <p>
