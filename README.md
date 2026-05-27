@@ -75,7 +75,7 @@ The npm package is `tracebase-local`; it installs `tracebase`, `traces`, `tcodex
 | --- | --- |
 | Codex transcripts | Existing JSONL sessions from `~/.codex/sessions/**/*.jsonl`. |
 | Claude Code transcripts | Existing JSONL sessions from `~/.claude/projects/**/*.jsonl`. |
-| Claude hooks | Prompt/tool/session lifecycle payloads when configured. |
+| Claude hooks | Prompt/tool/session lifecycle payloads when configured, recorded under the `claude` provider. |
 | Wrappers | Invocation start/end metadata for `tcodex` and `tclaude`. |
 | Live intake | Explicit POSTed events and spans when `tracebase agent` is running. |
 
