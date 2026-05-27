@@ -2,11 +2,30 @@
 
 Secure, local-first trace capture and inspection for Codex and Claude agent sessions.
 
+<p>
+  <img alt="Code License" src="https://img.shields.io/badge/code-MIT-3fb950?style=for-the-badge">
+  <img alt="Runtime" src="https://img.shields.io/badge/node-%3E%3D24-339933?style=for-the-badge&logo=node.js&logoColor=white">
+  <img alt="Local First" src="https://img.shields.io/badge/local--first-private-0969da?style=for-the-badge">
+  <img alt="MCP" src="https://img.shields.io/badge/MCP-read--only-f778ba?style=for-the-badge">
+  <img alt="Agents" src="https://img.shields.io/badge/agents-Claude%20%2B%20Codex-8957e5?style=for-the-badge">
+</p>
+
+<p>
+  <a href="#-install">Install</a> |
+  <a href="#-what-you-can-answer">What You Can Answer</a> |
+  <a href="#-privacy-defaults">Privacy</a> |
+  <a href="#-mcp">MCP</a> |
+  <a href="#-development">Development</a> |
+  <a href="#-license">License</a>
+</p>
+
+![Tracebase dashboard demo](assets/tracebase-interface-demo.gif)
+
 Tracebase imports local agent transcripts, encrypts raw events at rest, builds a searchable local index, and serves a localhost dashboard for debugging what happened in an agent run. It is designed for developer workstations: no network interception, no hidden reasoning capture, and no remote service required.
 
 Most LLM observability tools start from application SDKs, hosted gateways, or OpenTelemetry pipelines. Tracebase starts from the local coding-agent logs developers already have, then turns those runs into auditable engineering traces: what happened, what failed, what recovered, what got expensive, and what is safe to share.
 
-## At A Glance
+## ✨ At A Glance
 
 | Capability | What You Get |
 | --- | --- |
@@ -18,7 +37,7 @@ Most LLM observability tools start from application SDKs, hosted gateways, or Op
 | Run intelligence | Analyze sessions for failures, resteers, context waste, repeated commands, redactions, token/cost rollups, and run scorecards. |
 | Local integrations | CLI, CommonJS API, MCP, bootstrap instructions, shell wrappers, and launchd watcher support. |
 
-## What You Can Answer
+## 🔎 What You Can Answer
 
 Tracebase makes agent work inspectable after the fact. Use it to answer:
 
@@ -33,7 +52,7 @@ Tracebase makes agent work inspectable after the fact. Use it to answer:
 
 Context-waste detection is intentionally practical rather than mystical: it catches repeated searches, repeated commands, large outputs, and other patterns that burn context without clearly moving the task forward. Some expensive actions are still necessary, such as real UI automation or final release logs; the scorecard is meant to make that tradeoff visible.
 
-## Install
+## ⚡ Install
 
 | Requirement | Version |
 | --- | --- |
@@ -51,7 +70,7 @@ Open `http://127.0.0.1:7331`.
 
 The npm package is `tracebase-local`; it installs `tracebase`, `traces`, `tcodex`, and `tclaude`.
 
-## What It Captures
+## 📥 What It Captures
 
 | Source | Included |
 | --- | --- |
@@ -63,7 +82,7 @@ The npm package is `tracebase-local`; it installs `tracebase`, `traces`, `tcodex
 
 Tracebase records transcript-visible prompts, assistant messages, exposed reasoning summaries, tool calls, tool results, cwd, timestamps, approvals/errors when present, and raw provider transcript events. It does not capture hidden/private model chain-of-thought unless a provider explicitly emits that data.
 
-## Privacy Defaults
+## 🔐 Privacy Defaults
 
 | Boundary | Default |
 | --- | --- |
@@ -84,7 +103,7 @@ rm -rf ~/.traces
 
 Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage encryption externally.
 
-## Quick Workflows
+## 🧭 Quick Workflows
 
 | Goal | Commands |
 | --- | --- |
@@ -104,7 +123,7 @@ Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage enc
 | Generate a local summary | `tracebase summarize --session-id ID --runner codex` |
 | Start MCP | `tracebase mcp` |
 
-## CLI Overview
+## 🛠️ CLI Overview
 
 | Area | Commands |
 | --- | --- |
@@ -118,7 +137,7 @@ Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage enc
 
 `tracebase doctor` reports paths, capture coverage, watcher state, and Codex/Claude CLI availability. Run `tracebase --help` for full options.
 
-## Additional CLI Utilities
+## Additional CLI Utilities 🧰
 
 | Utility | Purpose |
 | --- | --- |
@@ -127,7 +146,7 @@ Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage enc
 | `traces hook-config` | Print Claude Code settings JSON for trace hooks. |
 | `traces shell-init` | Print shell aliases for this checkout. |
 
-## Dashboard and API
+## 🖥️ Dashboard and API
 
 `tracebase serve` runs a read-only localhost dashboard. `tracebase agent` serves the same UI with local intake enabled.
 
@@ -148,7 +167,7 @@ Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage enc
 State-changing browser requests reject `Origin` headers that do not exactly match the Tracebase server origin. CLI and curl requests without an `Origin` header remain supported.
 For summaries, browser-supplied command overrides are ignored; the local server invokes only allowlisted `codex` or `claude` runners.
 
-## Programmatic API
+## Programmatic API 🧩
 
 ```js
 const {
@@ -165,7 +184,7 @@ console.log(store.healthStats());
 
 The package exports storage, server, export, summary, redaction, normalization, LLMObs, and MCP helpers.
 
-## MCP
+## 🔌 MCP
 
 ```toml
 [mcp_servers.tracebase]
@@ -175,7 +194,7 @@ args = ["/absolute/path/to/bin/traces.js", "mcp"]
 
 The MCP server is read-only and exposes trace search plus canonical trace/span listing. It intentionally does not expose write tools in the OSS build.
 
-## Development
+## 🧪 Development
 
 ```sh
 npm install
@@ -197,7 +216,7 @@ For the full local checklist, see [TESTING.md](TESTING.md).
 | `npm run test:package` | `npm pack --dry-run`. |
 | `npm run test:install` | Install the packed package in a temp project and verify CLI/API behavior. |
 
-## Repository Docs
+## 📚 Repository Docs
 
 | File | Purpose |
 | --- | --- |
@@ -207,6 +226,6 @@ For the full local checklist, see [TESTING.md](TESTING.md).
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Local development standards. |
 | [NOTICE.md](NOTICE.md) | Third-party notice summary. |
 
-## License
+## 📄 License
 
 MIT. See [LICENSE](LICENSE).
