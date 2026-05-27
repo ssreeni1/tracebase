@@ -10,6 +10,7 @@ const sqlite = require("./sqlite-index");
 const { normalizeEvent } = require("./normalize");
 const { llmObsSpanFromInput, traceFromSpan } = require("./llmobs");
 const { extractStructured } = require("./structured");
+const { iterJsonlLines } = require("./jsonl");
 
 function safeStructured(input, redactionCount = 0) {
   const structured = { ...(input || {}) };
@@ -49,10 +50,9 @@ function ensureDir(dir) {
 }
 
 function readJsonl(file) {
-  if (!fs.existsSync(file)) return [];
-  const lines = fs.readFileSync(file, "utf8").split(/\n/).filter(Boolean);
   const rows = [];
-  for (const line of lines) {
+  for (const { line } of iterJsonlLines(file)) {
+    if (!line) continue;
     try {
       rows.push(JSON.parse(line));
     } catch {
@@ -132,7 +132,20 @@ class TraceStore {
   }
 
   seenEventIds() {
-    return new Set(readJsonl(this.indexPath).map((row) => row.id));
+    // Stream the (potentially huge) event log and keep only ids, so we never
+    // materialize every event row -- nor the whole file as one string -- just
+    // to dedupe imports.
+    const ids = new Set();
+    for (const { line } of iterJsonlLines(this.indexPath)) {
+      if (!line) continue;
+      try {
+        const id = JSON.parse(line).id;
+        if (id) ids.add(id);
+      } catch {
+        // Skip a partial/corrupt trailing row.
+      }
+    }
+    return ids;
   }
 
   upsertTask(task) {
@@ -334,37 +347,56 @@ class TraceStore {
     return sqlite.listMeaningfulEvents(this.getDb(), options);
   }
 
+  *iterEventLog() {
+    for (const { line } of iterJsonlLines(this.indexPath)) {
+      if (!line) continue;
+      try {
+        yield JSON.parse(line);
+      } catch {
+        // Skip a partial/corrupt trailing row.
+      }
+    }
+  }
+
   readEventLog() {
-    return readJsonl(this.indexPath);
+    return Array.from(this.iterEventLog());
+  }
+
+  rehydrateEventRow(row) {
+    try {
+      const raw = this.getBlob(row.blobId);
+      const normalized = normalizeEvent(row.provider, row.sourcePath || "rehydrated", row.offset, raw);
+      const searchable = compactText(normalized.searchText || normalized.summary || raw);
+      const summary = compactText(normalized.summary || row.summary || searchable.text.slice(0, 240), 500);
+      const redactions = [...searchable.hits, ...summary.hits];
+      return {
+        ...row,
+        taskId: normalized.taskId,
+        sessionId: normalized.sessionId,
+        provider: normalized.provider,
+        type: normalized.type,
+        role: normalized.role || null,
+        cwd: normalized.cwd || row.cwd || null,
+        timestamp: raw && raw.timestamp ? normalized.timestamp : row.timestamp,
+        summary: summary.text.slice(0, 240),
+        searchText: searchable.text,
+        redactions,
+        structured: safeStructured(normalized.structured || extractStructured(raw, normalized), redactions.length),
+        blobId: row.blobId
+      };
+    } catch {
+      return row;
+    }
+  }
+
+  *iterRehydratedEventLog() {
+    for (const row of this.iterEventLog()) {
+      yield this.rehydrateEventRow(row);
+    }
   }
 
   readRehydratedEventLog() {
-    return this.readEventLog().map((row) => {
-      try {
-        const raw = this.getBlob(row.blobId);
-        const normalized = normalizeEvent(row.provider, row.sourcePath || "rehydrated", row.offset, raw);
-        const searchable = compactText(normalized.searchText || normalized.summary || raw);
-        const summary = compactText(normalized.summary || row.summary || searchable.text.slice(0, 240), 500);
-        const redactions = [...searchable.hits, ...summary.hits];
-        return {
-          ...row,
-          taskId: normalized.taskId,
-          sessionId: normalized.sessionId,
-          provider: normalized.provider,
-          type: normalized.type,
-          role: normalized.role || null,
-          cwd: normalized.cwd || row.cwd || null,
-          timestamp: raw && raw.timestamp ? normalized.timestamp : row.timestamp,
-          summary: summary.text.slice(0, 240),
-          searchText: searchable.text,
-          redactions,
-          structured: safeStructured(normalized.structured || extractStructured(raw, normalized), redactions.length),
-          blobId: row.blobId
-        };
-      } catch {
-        return row;
-      }
-    });
+    return Array.from(this.iterRehydratedEventLog());
   }
 
   readSessionLog() {

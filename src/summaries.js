@@ -6,6 +6,7 @@ const path = require("node:path");
 const { spawn, spawnSync } = require("node:child_process");
 const { executablePath } = require("./executables");
 const { compactText, redactText } = require("./redact");
+const { iterJsonlLines } = require("./jsonl");
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -20,9 +21,9 @@ function summariesPath(traceHome) {
 }
 
 function readJsonl(file) {
-  if (!fs.existsSync(file)) return [];
   const rows = [];
-  for (const line of fs.readFileSync(file, "utf8").split(/\n/).filter(Boolean)) {
+  for (const { line } of iterJsonlLines(file)) {
+    if (!line) continue;
     try {
       rows.push(JSON.parse(line));
     } catch {

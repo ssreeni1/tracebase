@@ -879,12 +879,31 @@ function rebuildIndex(db, store) {
       DELETE FROM session_metrics;
     `);
     let events = 0;
-    const rawRows = store.readEventLog();
-    const rows = typeof store.readRehydratedEventLog === "function" ? store.readRehydratedEventLog() : rawRows;
-    for (const row of rows) events += insertEvent(db, row);
+    // Live-span source rows are a small subset (llmobs:* types); collect just
+    // those for restoreLiveSpans instead of holding every raw row in memory.
+    const liveSpanRows = [];
+    if (typeof store.iterEventLog === "function") {
+      // Stream the event log so a multi-hundred-MB index.jsonl is never read
+      // into a single string (Node caps strings at ~512 MiB) or fully
+      // materialized as an array.
+      const rehydrate = typeof store.rehydrateEventRow === "function"
+        ? (row) => store.rehydrateEventRow(row)
+        : (row) => row;
+      for (const raw of store.iterEventLog()) {
+        events += insertEvent(db, rehydrate(raw));
+        if (String(raw.type || "").startsWith("llmobs:")) liveSpanRows.push(raw);
+      }
+    } else {
+      const rawRows = store.readEventLog();
+      const rows = typeof store.readRehydratedEventLog === "function" ? store.readRehydratedEventLog() : rawRows;
+      for (const row of rows) events += insertEvent(db, row);
+      for (const row of rawRows) {
+        if (String(row.type || "").startsWith("llmobs:")) liveSpanRows.push(row);
+      }
+    }
     for (const row of store.readSessionLog()) upsertSession(db, row);
     for (const row of store.readTaskLog()) upsertTask(db, row);
-    restoreLiveSpans(db, store, rawRows);
+    restoreLiveSpans(db, store, liveSpanRows);
     db.exec("COMMIT");
     return { events };
   } catch (error) {

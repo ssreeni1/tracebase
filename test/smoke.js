@@ -182,6 +182,54 @@ async function main() {
   assert.equal(structuredAnnotations.some((row) => row.kind === "loop"), true);
   assert.equal(structuredAnnotations.some((row) => row.kind === "context_waste"), true);
 
+  // Streaming JSONL reader must produce byte offsets and values identical to the
+  // legacy slurp-and-split, even when chunk boundaries fall inside multibyte
+  // characters or across newlines. This parity is load-bearing: event ids derive
+  // from the byte offset, so a drift would silently break import dedup.
+  {
+    const { iterJsonlLines, readJsonlWithOffsets } = require("../src/jsonl");
+    const parityFile = path.join(home, "jsonl-parity.jsonl");
+    const recs = [{ a: 1 }, { b: "héllo😀 world" }, { c: [3, 4] }];
+    fs.writeFileSync(parityFile, recs.map((r) => JSON.stringify(r)).join("\n") + "\n");
+    const text = fs.readFileSync(parityFile, "utf8");
+    let off = 0;
+    const ref = [];
+    for (const line of text.split(/\n/)) {
+      const lineOffset = off;
+      off += Buffer.byteLength(line, "utf8") + 1;
+      if (!line.trim()) continue;
+      ref.push({ offset: lineOffset, value: JSON.parse(line) });
+    }
+    assert.deepEqual(Array.from(readJsonlWithOffsets(parityFile, { chunkSize: 3 })), ref);
+    assert.deepEqual(Array.from(readJsonlWithOffsets(parityFile)), ref);
+    // blank middle line + no trailing newline
+    const edgeFile = path.join(home, "jsonl-edge.jsonl");
+    fs.writeFileSync(edgeFile, '{"x":1}\n\n{"y":2}');
+    assert.deepEqual(Array.from(readJsonlWithOffsets(edgeFile, { chunkSize: 4 })), [
+      { offset: 0, value: { x: 1 } },
+      { offset: 9, value: { y: 2 } }
+    ]);
+    assert.equal(Array.from(iterJsonlLines(path.join(home, "missing.jsonl"))).length, 0);
+  }
+
+  // Streamed event log: ids dedupe and a full rebuild work without slurping the
+  // index into one string. Use an isolated store so the rebuild's table wipe
+  // does not disturb the main store's analyzed state.
+  {
+    const ids = store.seenEventIds();
+    assert.equal(ids instanceof Set, true);
+    assert.equal(ids.size > 0, true);
+    const rbHome = fs.mkdtempSync(path.join(os.tmpdir(), "traces-rebuild-"));
+    const rbStore = new TraceStore({ home: rbHome });
+    rbStore.init();
+    importJsonlFile(rbStore, "codex", path.join(__dirname, "fixtures", "codex.jsonl"), rbStore.seenEventIds());
+    const rebuilt = rbStore.rebuildIndex();
+    assert.equal(rebuilt.events > 0, true);
+    assert.equal(rbStore.listSessions({ limit: 50 }).some((row) => row.id === "fixture-codex"), true);
+    rbStore.close();
+    fs.rmSync(rbHome, { recursive: true, force: true });
+  }
+
   await ingestHook(JSON.stringify({
     hook_event_name: "UserPromptSubmit",
     session_id: "hook-session",
