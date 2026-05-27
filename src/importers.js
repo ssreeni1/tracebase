@@ -102,7 +102,11 @@ function likelyProviderFromTranscriptPath(transcriptPath) {
   const normalized = transcriptPath || "";
   if (normalized.includes(`${path.sep}.claude${path.sep}`)) return "claude";
   if (normalized.includes(`${path.sep}.codex${path.sep}`)) return "codex";
-  return "hook";
+  // The only caller is the Claude Code hook ingest path (hooks are a
+  // Claude-only feature), so a payload with no recognizable transcript path
+  // is still Claude. Attribute it to "claude" rather than inventing a separate
+  // "hook" provider that would fragment a single session across two providers.
+  return "claude";
 }
 
 module.exports = {

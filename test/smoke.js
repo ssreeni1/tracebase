@@ -192,6 +192,16 @@ async function main() {
   }));
   assert.equal(store.search("secret-value-12345").length, 0);
   assert.equal(store.search("[REDACTED").length >= 1, true);
+  // A Claude hook that fires without a transcript_path must still attribute to
+  // the claude provider, not a separate "hook" provider that fragments the session.
+  await ingestHook(JSON.stringify({
+    hook_event_name: "SessionStart",
+    session_id: "hook-nopath-session",
+    cwd: "/tmp/project",
+    timestamp: "2026-05-18T12:00:02.000Z"
+  }));
+  const hookNoPathSession = store.listSessions({ limit: 10000 }).find((row) => row.id === "hook-nopath-session");
+  assert.equal(hookNoPathSession.provider, "claude");
   const secretSummary = store.ingestLiveEvent({
     id: "secret-summary-event",
     session_id: "secret-session",
