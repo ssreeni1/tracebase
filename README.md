@@ -33,7 +33,7 @@ Most LLM observability tools start from application SDKs, hosted gateways, or Op
 | Dashboard | Browse sessions, events, canonical traces/spans, summaries, and exports at `127.0.0.1`. |
 | Live intake | Opt-in local HTTP intake for custom events and Datadog LLMObs-style spans. |
 | Exports | Redacted zip bundles by default; raw exports require explicit local intent. |
-| Run intelligence | Analyze sessions for failures, resteers, context waste, repeated commands, redactions, token/cost rollups, and run scorecards. |
+| Run intelligence | Analyze sessions for failures, resteers, context waste, repeated commands, redactions, token rollups, and run scorecards. |
 | Local integrations | CLI, CommonJS API, MCP, bootstrap instructions, shell wrappers, and launchd watcher support. |
 
 ## 🔎 What You Can Answer
@@ -44,10 +44,10 @@ Tracebase makes agent work inspectable after the fact. Use it to answer:
 | --- | --- |
 | Did the agent actually run tests? | Tool commands, exit status, test output summaries, and session scorecards. |
 | Where did the run get stuck? | Failure, loop, resteer, recovery, repeated-command, and context-waste annotations. |
-| What did this run cost? | Model, token, cache, reasoning, and estimated USD rollups when transcripts expose usage. |
+| How much did this run use? | Model, token, cache, and reasoning usage rollups when transcripts expose them. |
 | Which files or tools mattered? | Structured tool metadata, touched-file hints, canonical spans, and searchable events. |
 | Is this safe to share? | Redacted exports, incident packets, redaction counts, and explicit raw-export gates. |
-| Did one run improve on another? | `run-compare` quality, failure, waste, token, cost, and risk deltas. |
+| Did one run improve on another? | `run-compare` quality, failure, waste, token, and risk deltas. |
 
 Context-waste detection is intentionally practical rather than mystical: it catches repeated searches, repeated commands, large outputs, and other patterns that burn context without clearly moving the task forward. Some expensive actions are still necessary, such as real UI automation or final release logs; the scorecard is meant to make that tradeoff visible.
 
@@ -117,7 +117,7 @@ Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage enc
 | Pipe an export intentionally | `tracebase export --session-id ID --stdout > trace.zip` |
 | Export raw local data | `tracebase export --session-id ID --raw --out trace-raw.zip` |
 | Export a safe incident packet | `tracebase export --session-id ID --incident --out trace-incident.zip` |
-| Inspect token/cost rollups | `tracebase analyze` then `tracebase costs --session-id ID` |
+| Inspect token rollups | `tracebase analyze` then open the dashboard or `GET /api/session-metrics` |
 | Compare analyzed runs | `tracebase run-compare --base-session-id A --target-session-id B` |
 | Generate a local summary | `tracebase summarize --session-id ID --runner codex` |
 | Start MCP | `tracebase mcp` |
@@ -128,7 +128,7 @@ Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage enc
 | --- | --- |
 | Setup | `init`, `bootstrap`, `install-instructions`, `shell-init`, `doctor` |
 | Capture | `import`, `import-file`, `watch`, `watch-install`, `watch-status`, `watch-uninstall`, `hook`, `install-claude-hooks` |
-| Inspect | `stats`, `health`, `recent`, `search`, `show`, `decision-log`, `trace-diff`, `run-compare`, `traces-list`, `spans`, `costs` |
+| Inspect | `stats`, `health`, `recent`, `search`, `show`, `decision-log`, `trace-diff`, `run-compare`, `traces-list`, `spans` |
 | Dashboard/API | `serve`, `agent` |
 | Export/summary | `export`, `summarize` |
 | Observability | `analyze`, `llmobs-spans`, `llmobs-trace`, `net-snapshot` |
@@ -158,7 +158,7 @@ Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage enc
 | `GET /api/llmobs/traces`, `GET /api/llmobs/spans` | Datadog LLMObs-compatible envelopes. |
 | `POST /api/events`, `POST /api/spans`, `POST /api/intake` | Opt-in live intake. |
 | `GET /api/export` | Redacted or explicitly raw zip export. |
-| `GET /api/costs`, `GET /api/session-metrics` | Analyzed token/cost and run scorecard rollups. |
+| `GET /api/session-metrics` | Analyzed token and run scorecard rollups. |
 | `GET /api/trace-diff` | Compare a session source transcript against indexed rows. |
 | `GET /api/run-compare` | Compare analyzed scorecards for two sessions. |
 | `GET/POST /api/summaries/session/:id` | Cached or generated local session summaries. |

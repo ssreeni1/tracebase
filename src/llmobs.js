@@ -59,7 +59,6 @@ function metricsFromInput(input) {
     inputTokens: first(input.input_tokens, input.prompt_tokens, usage.input_tokens, usage.prompt_tokens),
     outputTokens: first(input.output_tokens, input.completion_tokens, usage.output_tokens, usage.completion_tokens),
     totalTokens: first(input.total_tokens, usage.total_tokens),
-    costUsd: first(input.cost_usd, input.cost, usage.cost_usd, usage.cost),
     contextWindow: first(input.context_window, usage.context_window),
     retries: first(input.retries, usage.retries),
     toolCallCount: first(input.tool_call_count, usage.tool_call_count)

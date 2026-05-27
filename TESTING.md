@@ -146,18 +146,16 @@ Expected:
 
 ```sh
 node bin/tracebase.js analyze --session-id SESSION_ID
-node bin/tracebase.js costs --session-id SESSION_ID
-curl -s "http://127.0.0.1:18427/api/costs?sessionId=SESSION_ID"
+curl -s "http://127.0.0.1:18427/api/session-metrics?limit=50"
 curl -s "http://127.0.0.1:18427/api/trace-diff?sessionId=SESSION_ID"
 node bin/tracebase.js run-compare --base-session-id BASE --target-session-id TARGET
 ```
 
 Expected:
 
-- Cost output reports token totals and estimated local cost when model and usage data are present.
-- Session metrics include context-waste counts plus quality, cost, efficiency, and risk scores.
+- Session metrics report token totals (input, output, cache, reasoning) when model and usage data are present.
+- Session metrics include context-waste counts plus quality, efficiency, and risk scores.
 - Trace diff reports whether indexed rows match the source transcript.
-- Cost estimates are local best-effort values; provider-reported costs win when present.
 
 ## Summary Runner Workflow
 

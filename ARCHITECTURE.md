@@ -22,7 +22,7 @@ flowchart LR
   index --> cli["CLI search / health / diff"]
   index --> mcp["Read-only MCP"]
   index --> llmobs["Trace/span + LLMObs views"]
-  index --> intelligence["Scorecards, annotations,<br/>token/cost rollups"]
+  index --> intelligence["Scorecards, annotations,<br/>token rollups"]
   dashboard --> export
 ```
 
@@ -31,7 +31,7 @@ flowchart LR
 | Ingestion | Import Codex/Claude JSONL, poll transcript folders, accept explicit live intake, record wrapper metadata | `index.jsonl`, `sessions.jsonl`, encrypted `blobs/*.json` |
 | Indexing | Normalize events, build searchable session/event/span projections, support dashboard filters | `traces.sqlite` |
 | Dashboard/API | Serve local UI, read-only trace views, exports, summaries, and opt-in intake | Built `dist/` assets plus HTTP handlers |
-| Intelligence | Derive annotations, context-waste findings, token/cost rollups, run scorecards, and incident packet diagnostics | Append-only logs plus rebuildable SQLite tables |
+| Intelligence | Derive annotations, context-waste findings, token rollups, run scorecards, and incident packet diagnostics | Append-only logs plus rebuildable SQLite tables |
 | Integrations | CLI commands, stdio MCP tools, bootstrap docs, shell wrappers, launchd watcher | Local config/docs only |
 
 ## Storage Model
@@ -40,7 +40,7 @@ flowchart LR
 - AES-256-GCM encrypted blobs are the durable raw event store.
 - SQLite plus FTS5 is a rebuildable query index for fast dashboard and CLI search.
 - Canonical trace/span tables project each session into a trace with a root span and transcript-visible child spans.
-- Structured metadata extracted from transcript-visible events captures safe redacted fields such as model, token counts, estimated cost, tool name, command/file hints, approval state, and error kind; full raw payloads remain encrypted blobs.
+- Structured metadata extracted from transcript-visible events captures safe redacted fields such as model, token counts, tool name, command/file hints, approval state, and error kind; full raw payloads remain encrypted blobs.
 
 This keeps capture resilient: if SQLite is deleted or corrupted, it can be rebuilt from local append-only logs and encrypted blobs.
 
@@ -84,7 +84,7 @@ State-changing HTTP intake requires `traces agent`, `traces serve --allow-intake
 | --- | --- |
 | Rebuild query index | `traces index` |
 | Re-run trace annotations | `traces analyze` |
-| Inspect token/cost rollups | `traces costs --session-id <id>` |
+| Inspect token rollups | `traces analyze` then `GET /api/session-metrics` or the dashboard |
 | Inspect recent events | `traces recent --limit 20` |
 | Inspect canonical traces | `traces traces-list` |
 | Inspect spans | `traces spans --session-id <id>` |

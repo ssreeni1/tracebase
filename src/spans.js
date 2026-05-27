@@ -134,9 +134,7 @@ function canonicalSpanFromEvent(event) {
         cacheReadTokens: structured.cacheReadTokens == null ? null : Number(structured.cacheReadTokens),
         cacheWriteTokens: structured.cacheWriteTokens == null ? null : Number(structured.cacheWriteTokens),
         reasoningTokens: structured.reasoningTokens == null ? null : Number(structured.reasoningTokens),
-        totalTokens: structured.totalTokens == null ? null : Number(structured.totalTokens),
-        costUsd: structured.estimatedCostUsd == null ? null : Number(structured.estimatedCostUsd),
-        costConfidence: structured.costConfidence || "unknown"
+        totalTokens: structured.totalTokens == null ? null : Number(structured.totalTokens)
       },
       tool: {
         name: structured.toolName || null,

@@ -186,10 +186,8 @@ function openIndex(traceHome) {
       cacheWriteTokens INTEGER,
       reasoningTokens INTEGER,
       totalTokens INTEGER,
-      estimatedCostUsd REAL,
       outcome TEXT,
       qualityScore INTEGER,
-      costScore INTEGER,
       efficiencyScore INTEGER,
       riskScore INTEGER,
       analyzedAt TEXT
@@ -212,8 +210,6 @@ function openIndex(traceHome) {
     ["cacheWriteTokens", "INTEGER"],
     ["reasoningTokens", "INTEGER"],
     ["totalTokens", "INTEGER"],
-    ["estimatedCostUsd", "REAL"],
-    ["costScore", "INTEGER"],
     ["efficiencyScore", "INTEGER"],
     ["riskScore", "INTEGER"]
   ]) ensureColumn(db, "session_metrics", column, definition);
@@ -760,8 +756,8 @@ function listSessionMetrics(db, options = {}) {
            m.failedToolCount, m.approvalDeniedCount, m.repeatedCommandCount, m.contextWasteCount,
            m.largeOutputCount, m.filesTouchedCount,
            m.redactionCount, m.model, m.inputTokens, m.outputTokens, m.cacheReadTokens,
-           m.cacheWriteTokens, m.reasoningTokens, m.totalTokens, m.estimatedCostUsd,
-           m.outcome, m.qualityScore, m.costScore, m.efficiencyScore, m.riskScore, m.analyzedAt
+           m.cacheWriteTokens, m.reasoningTokens, m.totalTokens,
+           m.outcome, m.qualityScore, m.efficiencyScore, m.riskScore, m.analyzedAt
     FROM sessions s
     LEFT JOIN session_metrics m ON m.sessionId = s.id
     ORDER BY COALESCE(s.endedAt, s.updatedAt, s.startedAt) DESC

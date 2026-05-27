@@ -368,21 +368,6 @@ function createServer(options = {}) {
     if (url.pathname === "/api/session-metrics") {
       return sendJson(res, store.listSessionMetrics({ limit: queryLimit(url, 1000) }));
     }
-    if (url.pathname === "/api/costs") {
-      const sessionId = url.searchParams.get("sessionId") || null;
-      const rows = store.listSessionMetrics({ limit: queryLimit(url, 10000) })
-        .filter((row) => !sessionId || row.id === sessionId);
-      return sendJson(res, {
-        sessions: rows,
-        totals: rows.reduce((acc, row) => {
-          acc.inputTokens += Number(row.inputTokens || 0);
-          acc.outputTokens += Number(row.outputTokens || 0);
-          acc.totalTokens += Number(row.totalTokens || 0);
-          acc.estimatedCostUsd += Number(row.estimatedCostUsd || 0);
-          return acc;
-        }, { inputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedCostUsd: 0 })
-      });
-    }
     if (url.pathname === "/api/trace-diff") {
       const sessionId = url.searchParams.get("sessionId");
       if (!sessionId) return sendJson(res, { error: "sessionId required" }, 400);

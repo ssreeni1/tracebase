@@ -76,9 +76,6 @@ async function main() {
     const metrics = await json(`${origin}/api/session-metrics?limit=10`);
     assert.equal(metrics.response.status, 200);
     assert.equal(metrics.body.some((row) => row.id === "fixture-codex" && row.totalTokens === 1300), true);
-    const costs = await json(`${origin}/api/costs?sessionId=fixture-codex`);
-    assert.equal(costs.response.status, 200);
-    assert.equal(costs.body.totals.totalTokens, 1300);
     const diff = await json(`${origin}/api/trace-diff?sessionId=fixture-claude`);
     assert.equal(diff.response.status, 200);
     assert.equal(diff.body.complete, true);

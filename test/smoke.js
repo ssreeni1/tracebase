@@ -20,7 +20,6 @@ const { listLlmObsSpans } = require("../src/llmobs");
 const { redactText } = require("../src/redact");
 const { bootstrapText, installInstructions } = require("../src/bootstrap");
 const { makePlist, watchRecommendations } = require("../src/daemon");
-const { estimateCostUsd, pricingForModel } = require("../src/costs");
 
 async function main() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "traces-smoke-"));
@@ -28,19 +27,6 @@ async function main() {
 
   const store = new TraceStore({ home });
   store.init();
-  assert.equal(pricingForModel("gpt-4.1-mini").inputPerMillion, 0.4);
-  assert.deepEqual(estimateCostUsd({ model: "gpt-4.1-mini", inputTokens: 1000000, outputTokens: 1000000 }), {
-    costUsd: 2,
-    costConfidence: "estimated"
-  });
-  assert.deepEqual(estimateCostUsd({ model: "unknown-model", inputTokens: 1000 }), {
-    costUsd: null,
-    costConfidence: "unknown"
-  });
-  assert.deepEqual(estimateCostUsd({ model: "gpt-4.1-mini", costUsd: 0.123 }), {
-    costUsd: 0.123,
-    costConfidence: "provider_reported"
-  });
   const seen = store.seenEventIds();
   importJsonlFile(store, "claude", path.join(__dirname, "fixtures", "claude.jsonl"), seen);
   importJsonlFile(store, "codex", path.join(__dirname, "fixtures", "codex.jsonl"), seen);
@@ -63,7 +49,6 @@ async function main() {
   assert.equal(store.listSpans({ sessionId: "fixture-claude" }).length >= 4, true);
   const codexUsageSpan = store.listSpans({ sessionId: "fixture-codex" }).find((span) => span.metadata.model === "gpt-5.3-codex");
   assert.equal(codexUsageSpan.metadata.metrics.totalTokens, 1300);
-  assert.equal(codexUsageSpan.metadata.metrics.costConfidence, "estimated");
   const exportWithoutDestination = spawnSync(process.execPath, [path.join(__dirname, "..", "bin", "traces.js"), "export", "--session-id", "fixture-claude"], {
     env: { ...process.env, TRACE_HOME: home },
     encoding: "utf8"
@@ -92,7 +77,7 @@ async function main() {
     status: "ok",
     input: { prompt: "implement live intake" },
     output: { result: "done" },
-    usage: { input_tokens: 12, output_tokens: 34, total_tokens: 46, cost_usd: 0.001 }
+    usage: { input_tokens: 12, output_tokens: 34, total_tokens: 46 }
   }).span;
   assert.equal(liveSpan.id, "live-root");
   assert.equal(liveSpan.traceId, "trace-live-1");
@@ -176,9 +161,10 @@ async function main() {
   const codexMetrics = store.listSessionMetrics({ limit: 20 }).find((row) => row.id === "fixture-codex");
   assert.equal(codexMetrics.model, "gpt-5.3-codex");
   assert.equal(codexMetrics.totalTokens, 1300);
-  assert.equal(codexMetrics.estimatedCostUsd > 0, true);
   assert.equal(typeof codexMetrics.qualityScore, "number");
   const structuredMetrics = store.listSessionMetrics({ limit: 20 }).find((row) => row.id === "structured-fixture");
+  assert.equal(structuredMetrics.cacheReadTokens, 50);
+  assert.equal(structuredMetrics.reasoningTokens, 5);
   assert.equal(structuredMetrics.failedToolCount, 1);
   assert.equal(structuredMetrics.approvalDeniedCount, 1);
   assert.equal(structuredMetrics.repeatedCommandCount, 2);
@@ -275,11 +261,11 @@ async function main() {
   assert.equal(summaryRunners.runners.some((runner) => runner.runner === "codex" && typeof runner.available === "boolean"), true);
   assert.equal(summaryRunners.runners.some((runner) => runner.runner === "claude" && typeof runner.available === "boolean"), true);
   assert.equal(summaryRunners.runners.every((runner) => !Object.hasOwn(runner, "command") && !Object.hasOwn(runner, "path")), true);
-  const apiCosts = await fetch(`http://127.0.0.1:${port}/api/costs?sessionId=fixture-codex`).then((r) => r.json());
-  assert.equal(apiCosts.totals.totalTokens, 1300);
-  const apiStructuredCosts = await fetch(`http://127.0.0.1:${port}/api/costs?sessionId=structured-fixture`).then((r) => r.json());
-  assert.equal(apiStructuredCosts.sessions[0].cacheReadTokens, 50);
-  assert.equal(apiStructuredCosts.sessions[0].failedToolCount, 1);
+  const apiSessionMetrics = await fetch(`http://127.0.0.1:${port}/api/session-metrics?limit=100`).then((r) => r.json());
+  assert.equal(apiSessionMetrics.find((row) => row.id === "fixture-codex").totalTokens, 1300);
+  const apiStructuredMetrics = apiSessionMetrics.find((row) => row.id === "structured-fixture");
+  assert.equal(apiStructuredMetrics.cacheReadTokens, 50);
+  assert.equal(apiStructuredMetrics.failedToolCount, 1);
   const apiDiff = await fetch(`http://127.0.0.1:${port}/api/trace-diff?sessionId=fixture-claude`).then((r) => r.json());
   assert.equal(apiDiff.complete, true);
   const apiCompare = await fetch(`http://127.0.0.1:${port}/api/run-compare?baseSessionId=fixture-codex&targetSessionId=structured-fixture`).then((r) => r.json());
@@ -621,20 +607,6 @@ async function main() {
   });
   assert.equal(llmobsTraceCli.status, 0, llmobsTraceCli.stderr);
   assert.equal(JSON.parse(llmobsTraceCli.stdout).attributes.trace_id, "trace-live-1");
-  const costsCli = spawnSync(process.execPath, [path.join(__dirname, "..", "bin", "traces.js"), "costs", "--session-id", "fixture-codex"], {
-    env: { ...process.env, TRACE_HOME: home },
-    encoding: "utf8"
-  });
-  assert.equal(costsCli.status, 0, costsCli.stderr);
-  assert.equal(JSON.parse(costsCli.stdout).totals.totalTokens, 1300);
-  const structuredCostsCli = spawnSync(process.execPath, [path.join(__dirname, "..", "bin", "traces.js"), "costs", "--session-id", "structured-fixture"], {
-    env: { ...process.env, TRACE_HOME: home },
-    encoding: "utf8"
-  });
-  assert.equal(structuredCostsCli.status, 0, structuredCostsCli.stderr);
-  const structuredCostsPayload = JSON.parse(structuredCostsCli.stdout);
-  assert.equal(structuredCostsPayload.totals.cacheReadTokens, 50);
-  assert.equal(structuredCostsPayload.totals.reasoningTokens, 5);
   const runCompareCli = spawnSync(process.execPath, [path.join(__dirname, "..", "bin", "traces.js"), "run-compare", "--base-session-id", "fixture-codex", "--target-session-id", "structured-fixture"], {
     env: { ...process.env, TRACE_HOME: home },
     encoding: "utf8"
@@ -648,7 +620,6 @@ async function main() {
     { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "search_events", arguments: { query: "vite", limit: 5 } } },
     { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "list_spans", arguments: { sessionId: "fixture-claude", limit: 5 } } },
     { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "session_scorecard", arguments: { sessionId: "structured-fixture" } } },
-    { jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "costs", arguments: { sessionId: "structured-fixture" } } },
     { jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "run_compare", arguments: { baseSessionId: "fixture-codex", targetSessionId: "structured-fixture" } } },
     { jsonrpc: "2.0", id: 8, method: "tools/call", params: { name: "create_dataset", arguments: { name: "Removed OSS Tool" } } }
   ].map(encodeFrame).join("");
@@ -662,7 +633,7 @@ async function main() {
   assert.equal(mcpMessages.find((msg) => msg.id === 2).result.tools.some((tool) => tool.name === "list_spans"), true);
   assert.equal(mcpMessages.find((msg) => msg.id === 2).result.tools.some((tool) => tool.name === "create_dataset"), false);
   assert.equal(mcpMessages.find((msg) => msg.id === 2).result.tools.some((tool) => tool.name === "session_scorecard"), true);
-  assert.equal(mcpMessages.find((msg) => msg.id === 2).result.tools.some((tool) => tool.name === "costs"), true);
+  assert.equal(mcpMessages.find((msg) => msg.id === 2).result.tools.some((tool) => tool.name === "costs"), false);
   assert.equal(mcpMessages.find((msg) => msg.id === 2).result.tools.some((tool) => tool.name === "run_compare"), true);
   assert.equal(mcpMessages.find((msg) => msg.id === 2).result.tools.every((tool) => tool.inputSchema.additionalProperties === false), true);
   const searchPayload = JSON.parse(mcpMessages.find((msg) => msg.id === 3).result.content[0].text);
@@ -672,8 +643,6 @@ async function main() {
   const scorecardPayload = JSON.parse(mcpMessages.find((msg) => msg.id === 5).result.content[0].text);
   assert.equal(scorecardPayload.metrics.failedToolCount, 1);
   assert.equal(scorecardPayload.annotations.some((row) => row.kind === "loop"), true);
-  const mcpCostsPayload = JSON.parse(mcpMessages.find((msg) => msg.id === 6).result.content[0].text);
-  assert.equal(mcpCostsPayload.totals.totalTokens, 450);
   const mcpComparePayload = JSON.parse(mcpMessages.find((msg) => msg.id === 7).result.content[0].text);
   assert.equal(mcpComparePayload.deltas.totalTokens.target, 450);
   assert.equal(mcpMessages.find((msg) => msg.id === 8).error.message.includes("Unknown MCP tool"), true);

@@ -131,8 +131,6 @@ function seedStore(home) {
 function assertCli(home) {
   const env = { TRACE_HOME: home };
   assert.equal(run(process.execPath, ["bin/tracebase.js", "health"], { env }).stdout.includes("hiddenPrivateReasoning"), true);
-  const costs = JSON.parse(run(process.execPath, ["bin/tracebase.js", "costs", "--session-id", "release-waste"], { env }).stdout);
-  assert.equal(costs.totals.totalTokens, 955);
   const compare = JSON.parse(run(process.execPath, ["bin/tracebase.js", "run-compare", "--base-session-id", "fixture-codex", "--target-session-id", "release-waste"], { env }).stdout);
   assert.equal(compare.deltas.totalTokens.target, 955);
   const diff = JSON.parse(run(process.execPath, ["bin/tracebase.js", "trace-diff", "--session-id", "fixture-claude"], { env }).stdout);
@@ -144,7 +142,6 @@ function assertMcp(home, secret) {
     { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "release-e2e", version: "0" } } },
     { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
     { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "session_scorecard", arguments: { sessionId: "release-waste" } } },
-    { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "costs", arguments: { sessionId: "release-waste" } } },
     { jsonrpc: "2.0", id: 5, method: "tools/call", params: { name: "run_compare", arguments: { baseSessionId: "fixture-codex", targetSessionId: "release-waste" } } },
     { jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "list_spans", arguments: { sessionId: "release-waste", limit: 20 } } },
     { jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "stats", arguments: { unexpected: true } } }
@@ -155,8 +152,7 @@ function assertMcp(home, secret) {
   assert.equal(messages.find((msg) => msg.id === 2).result.tools.some((tool) => tool.name === "run_compare"), true);
   const scorecard = JSON.parse(messages.find((msg) => msg.id === 3).result.content[0].text);
   assert.equal(scorecard.metrics.contextWasteCount >= 1, true);
-  const costs = JSON.parse(messages.find((msg) => msg.id === 4).result.content[0].text);
-  assert.equal(costs.totals.totalTokens, 955);
+  assert.equal(scorecard.metrics.totalTokens, 955);
   const spans = JSON.parse(messages.find((msg) => msg.id === 6).result.content[0].text);
   assert.equal(JSON.stringify(spans).includes(secret), false);
   assert.equal(messages.find((msg) => msg.id === 7).error.message.includes("Unexpected MCP argument"), true);
@@ -174,8 +170,8 @@ async function assertApiAndExports(store, secret) {
       body: JSON.stringify({ id: "blocked", provider: "test", session_id: "blocked", message: "blocked" })
     });
     assert.equal(blocked.response.status, 403);
-    const costs = await json(`${origin}/api/costs?sessionId=release-waste`);
-    assert.equal(costs.body.totals.totalTokens, 955);
+    const releaseMetrics = await json(`${origin}/api/session-metrics?limit=100`);
+    assert.equal(releaseMetrics.body.find((row) => row.id === "release-waste").totalTokens, 955);
     const compare = await json(`${origin}/api/run-compare?baseSessionId=fixture-codex&targetSessionId=release-waste`);
     assert.equal(compare.body.deltas.contextWasteCount.target >= 1, true);
     const spans = await json(`${origin}/api/spans?sessionId=release-waste&limit=20`);

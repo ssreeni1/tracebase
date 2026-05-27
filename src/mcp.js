@@ -49,10 +49,6 @@ const READ_TOOLS = [
   tool("session_scorecard", "Return analyzed scorecard and diagnostics for a session.", {
     sessionId: { type: "string" }
   }, ["sessionId"]),
-  tool("costs", "Return analyzed token and cost rollups.", {
-    sessionId: { type: "string" },
-    limit: { type: "number" }
-  }),
   tool("run_compare", "Compare analyzed scorecards for two sessions.", {
     baseSessionId: { type: "string" },
     targetSessionId: { type: "string" }
@@ -100,19 +96,6 @@ function callTool(store, name, args = {}) {
       return {
         metrics,
         annotations: store.listAnnotations({ sessionId: args.sessionId, limit: 1000 })
-      };
-    }
-    case "costs": {
-      const rows = store.listSessionMetrics({ limit: args.limit || 10000 }).filter((row) => !args.sessionId || row.id === args.sessionId);
-      return {
-        sessions: rows,
-        totals: rows.reduce((acc, row) => {
-          acc.inputTokens += Number(row.inputTokens || 0);
-          acc.outputTokens += Number(row.outputTokens || 0);
-          acc.totalTokens += Number(row.totalTokens || 0);
-          acc.estimatedCostUsd += Number(row.estimatedCostUsd || 0);
-          return acc;
-        }, { inputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedCostUsd: 0 })
       };
     }
     case "run_compare":

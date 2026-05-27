@@ -5,9 +5,9 @@ import {
   Archive,
   Brain,
   Clock,
-  DollarSign,
   Download,
   Filter,
+  Gauge,
   GitCompare,
   Moon,
   RefreshCcw,
@@ -120,12 +120,6 @@ function providerLabel(provider) {
 function numberFmt(value) {
   const n = Number(value || 0);
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(n);
-}
-
-function moneyFmt(value) {
-  const n = Number(value || 0);
-  if (!n) return "$0";
-  return `$${n.toFixed(n < 0.01 ? 4 : 2)}`;
 }
 
 function App() {
@@ -363,7 +357,6 @@ function App() {
           <section className="scorecard">
             <div><strong>{metrics?.qualityScore ?? "?"}</strong><span>quality</span></div>
             <div><strong>{numberFmt(metrics?.totalTokens)}</strong><span>tokens</span></div>
-            <div><strong>{moneyFmt(metrics?.estimatedCostUsd)}</strong><span>est. cost</span></div>
             <div><strong>{metrics?.failureCount ?? 0}</strong><span>failures</span></div>
             <div><strong>{metrics?.contextWasteCount ?? 0}</strong><span>waste</span></div>
             <div><strong>{metrics?.redactionCount ?? 0}</strong><span>redactions</span></div>
@@ -382,7 +375,7 @@ function App() {
 
           <div className="content diagnosticsGrid">
             <section className="diagnostics">
-              <h2><DollarSign size={14} /> Run Intelligence</h2>
+              <h2><Gauge size={14} /> Run Intelligence</h2>
               <dl>
                 <div><dt>Model</dt><dd>{metrics?.model || "unknown"}</dd></div>
                 <div><dt>Input / output</dt><dd>{numberFmt(metrics?.inputTokens)} / {numberFmt(metrics?.outputTokens)}</dd></div>
@@ -410,7 +403,6 @@ function App() {
                 <div><dt>Annotations</dt><dd>{annotations.length}</dd></div>
                 <div><dt>Outcome</dt><dd>{metrics?.outcome || "unanalyzed"}</dd></div>
                 {comparison && <div><dt>Token delta</dt><dd>{numberFmt(comparison.deltas.totalTokens.delta)}</dd></div>}
-                {comparison && <div><dt>Cost delta</dt><dd>{moneyFmt(comparison.deltas.estimatedCostUsd.delta)}</dd></div>}
                 {comparison && <div><dt>Waste delta</dt><dd>{numberFmt(comparison.deltas.contextWasteCount.delta)}</dd></div>}
               </dl>
               <div className="annotationList">

@@ -118,7 +118,6 @@ function aggregateStructured(events) {
     cacheWriteTokens: 0,
     reasoningTokens: 0,
     totalTokens: 0,
-    estimatedCostUsd: 0,
     failedToolCount: 0,
     approvalDeniedCount: 0,
     redactionCount: 0,
@@ -135,7 +134,6 @@ function aggregateStructured(events) {
     addMetric(totals, "cacheWriteTokens", structured.cacheWriteTokens);
     addMetric(totals, "reasoningTokens", structured.reasoningTokens);
     addMetric(totals, "totalTokens", structured.totalTokens);
-    addMetric(totals, "estimatedCostUsd", structured.estimatedCostUsd);
     addMetric(totals, "redactionCount", structured.redactionCount);
     if (structured.model) models.set(structured.model, (models.get(structured.model) || 0) + 1);
     for (const file of structured.filesTouched || []) files.add(file);
@@ -149,7 +147,6 @@ function aggregateStructured(events) {
   return {
     ...totals,
     model,
-    estimatedCostUsd: Number(totals.estimatedCostUsd.toFixed(8)),
     filesTouchedCount: files.size,
     repeatedCommandCount
   };
@@ -289,7 +286,6 @@ function analyzeSessionEvents(sessionId, events) {
   const qualityScore = Math.max(0, Math.min(100,
     100 - (counts.failure || 0) * 8 - (counts.resteer || 0) * 12 - (counts.loop || 0) * 10 + (counts.recovery || 0) * 4
   ));
-  const costScore = Math.max(0, Math.min(100, 100 - Math.ceil((structured.estimatedCostUsd || 0) * 100)));
   const efficiencyScore = Math.max(0, Math.min(100,
     100 - (structured.repeatedCommandCount || 0) * 8 - (structured.failedToolCount || 0) * 6 - (counts.loop || 0) * 10 - (counts.context_waste || 0) * 7
   ));
@@ -322,10 +318,8 @@ function analyzeSessionEvents(sessionId, events) {
       cacheWriteTokens: structured.cacheWriteTokens,
       reasoningTokens: structured.reasoningTokens,
       totalTokens: structured.totalTokens,
-      estimatedCostUsd: structured.estimatedCostUsd,
       outcome,
       qualityScore,
-      costScore,
       efficiencyScore,
       riskScore,
       analyzedAt: new Date().toISOString()
@@ -369,14 +363,14 @@ function analyzeStore(store, options = {}) {
           sessionId, eventCount, toolCount, userPromptCount, failureCount, resteerCount,
           loopCount, recoveryCount, failedToolCount, approvalDeniedCount, repeatedCommandCount,
           contextWasteCount, largeOutputCount, filesTouchedCount, redactionCount, model, inputTokens, outputTokens, cacheReadTokens,
-          cacheWriteTokens, reasoningTokens, totalTokens, estimatedCostUsd, outcome, qualityScore,
-          costScore, efficiencyScore, riskScore, analyzedAt
+          cacheWriteTokens, reasoningTokens, totalTokens, outcome, qualityScore,
+          efficiencyScore, riskScore, analyzedAt
         ) VALUES (
           $sessionId, $eventCount, $toolCount, $userPromptCount, $failureCount, $resteerCount,
           $loopCount, $recoveryCount, $failedToolCount, $approvalDeniedCount, $repeatedCommandCount,
           $contextWasteCount, $largeOutputCount, $filesTouchedCount, $redactionCount, $model, $inputTokens, $outputTokens, $cacheReadTokens,
-          $cacheWriteTokens, $reasoningTokens, $totalTokens, $estimatedCostUsd, $outcome, $qualityScore,
-          $costScore, $efficiencyScore, $riskScore, $analyzedAt
+          $cacheWriteTokens, $reasoningTokens, $totalTokens, $outcome, $qualityScore,
+          $efficiencyScore, $riskScore, $analyzedAt
         )
         ON CONFLICT(sessionId) DO UPDATE SET
           eventCount = excluded.eventCount,
@@ -400,10 +394,8 @@ function analyzeStore(store, options = {}) {
           cacheWriteTokens = excluded.cacheWriteTokens,
           reasoningTokens = excluded.reasoningTokens,
           totalTokens = excluded.totalTokens,
-          estimatedCostUsd = excluded.estimatedCostUsd,
           outcome = excluded.outcome,
           qualityScore = excluded.qualityScore,
-          costScore = excluded.costScore,
           efficiencyScore = excluded.efficiencyScore,
           riskScore = excluded.riskScore,
           analyzedAt = excluded.analyzedAt
@@ -430,10 +422,8 @@ function analyzeStore(store, options = {}) {
         $cacheWriteTokens: result.metrics.cacheWriteTokens,
         $reasoningTokens: result.metrics.reasoningTokens,
         $totalTokens: result.metrics.totalTokens,
-        $estimatedCostUsd: result.metrics.estimatedCostUsd,
         $outcome: result.metrics.outcome,
         $qualityScore: result.metrics.qualityScore,
-        $costScore: result.metrics.costScore,
         $efficiencyScore: result.metrics.efficiencyScore,
         $riskScore: result.metrics.riskScore,
         $analyzedAt: result.metrics.analyzedAt

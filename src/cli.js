@@ -38,7 +38,6 @@ Commands:
   watch-uninstall       Remove persistent watcher
   index                 Rebuild SQLite/FTS query index from JSONL logs
   analyze               Annotate sessions for failures, resteers, loops, recoveries
-  costs                 Print token/cost rollups from analyzed sessions
   stats                 Print trace store metrics
   health                Print capture health and known coverage limits
   recent                Print recent meaningful events as JSONL
@@ -280,25 +279,6 @@ async function main(args) {
     const store = new TraceStore();
     store.init();
     process.stdout.write(JSON.stringify(store.stats({ deep: args.includes("--deep") }), null, 2) + "\n");
-    return;
-  }
-  if (command === "costs") {
-    const store = new TraceStore();
-    store.init();
-    const sessionId = readOption(args, "--session-id");
-    const rows = store.listSessionMetrics({ limit: readOption(args, "--limit") || 10000 })
-      .filter((row) => !sessionId || row.id === sessionId);
-    const totals = rows.reduce((acc, row) => {
-      acc.inputTokens += Number(row.inputTokens || 0);
-      acc.outputTokens += Number(row.outputTokens || 0);
-      acc.cacheReadTokens += Number(row.cacheReadTokens || 0);
-      acc.cacheWriteTokens += Number(row.cacheWriteTokens || 0);
-      acc.reasoningTokens += Number(row.reasoningTokens || 0);
-      acc.totalTokens += Number(row.totalTokens || 0);
-      acc.estimatedCostUsd += Number(row.estimatedCostUsd || 0);
-      return acc;
-    }, { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 0, estimatedCostUsd: 0 });
-    process.stdout.write(JSON.stringify({ sessions: rows, totals }, null, 2) + "\n");
     return;
   }
   if (command === "health") {

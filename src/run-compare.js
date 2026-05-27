@@ -35,11 +35,9 @@ function buildRunComparison(store, baseSessionId, targetSessionId) {
   const targetAnnotations = store.listAnnotations({ sessionId: targetSessionId, limit: 10000 });
   const keys = [
     "qualityScore",
-    "costScore",
     "efficiencyScore",
     "riskScore",
     "totalTokens",
-    "estimatedCostUsd",
     "failureCount",
     "contextWasteCount",
     "repeatedCommandCount",

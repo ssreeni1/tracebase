@@ -1,6 +1,10 @@
 "use strict";
 
-const { estimateCostUsd, numberOrNull } = require("./costs");
+function numberOrNull(value) {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
 function first(...values) {
   for (const value of values) {
@@ -137,14 +141,6 @@ function extractStructured(raw = {}, base = {}) {
   const toolName = first(raw.tool_name, raw.toolName, nested(raw, "payload", "tool_name"), nested(raw, "payload", "toolName"), /tool/i.test(String(base.type || raw.type || "")) ? raw.name : null);
   const exitCode = exitCodeFrom(raw, output);
   const filePath = filePathFrom(input, raw);
-  const estimated = estimateCostUsd({
-    model,
-    inputTokens,
-    outputTokens,
-    cacheReadTokens,
-    cacheWriteTokens,
-    costUsd: metric(raw, "cost_usd", "costUsd", "cost")
-  });
   const structured = {
     model: model == null ? null : String(model),
     inputTokens,
@@ -153,8 +149,6 @@ function extractStructured(raw = {}, base = {}) {
     cacheWriteTokens,
     reasoningTokens,
     totalTokens,
-    estimatedCostUsd: estimated.costUsd,
-    costConfidence: estimated.costConfidence,
     toolName: toolName == null ? null : String(toolName),
     command: commandFrom(input),
     filePath: filePath == null ? null : String(filePath),
