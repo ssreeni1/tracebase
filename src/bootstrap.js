@@ -28,7 +28,7 @@ You may use Tracebase to capture and inspect local agent traces for this project
 - Initialize local store: \`tracebase init\`
 - Import existing ${name} traces: \`tracebase import --provider ${agent === "claude" ? "claude" : "codex"}\`
 - Watch local transcript files: \`tracebase watch\`
-- Start viewer: \`tracebase serve --port 7331\`
+- Start viewer: \`tracebase serve --port 18427\`
 - Check health: \`tracebase health\`
 - Search events: \`tracebase search "query"\`
 - Summarize a session: \`tracebase summarize --session-id SESSION_ID --runner ${agent === "claude" ? "claude" : "codex"}\`
@@ -49,7 +49,7 @@ function bootstrapText(options = {}) {
     "tracebase init",
     `tracebase import --provider ${agent === "claude" ? "claude" : "codex"}`,
     "tracebase health",
-    "tracebase serve --port 7331",
+    "tracebase serve --port 18427",
     "```",
     "",
     "Optional always-on capture:",

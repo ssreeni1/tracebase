@@ -89,8 +89,8 @@ State-changing HTTP intake requires `traces agent`, `traces serve --allow-intake
 | Inspect canonical traces | `traces traces-list` |
 | Inspect spans | `traces spans --session-id <id>` |
 | Compare transcript coverage | `traces trace-diff --session-id <id>` |
-| Start dashboard | `traces serve --port 7331` |
-| Start live intake | `traces agent --port 7331` |
+| Start dashboard | `traces serve --port 18427` |
+| Start live intake | `traces agent --port 18427` |
 | Start read-only MCP | `traces mcp` |
 | Run release gate | `npm test` |
 

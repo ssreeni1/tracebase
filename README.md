@@ -7,7 +7,6 @@ Secure, local-first trace capture and inspection for Codex and Claude agent sess
   <a href="CONTRIBUTING.md"><img alt="Contributing" src="https://img.shields.io/badge/contributing-guide-0969da?style=for-the-badge"></a>
   <a href="SECURITY.md"><img alt="Security" src="https://img.shields.io/badge/security-policy-f778ba?style=for-the-badge"></a>
   <a href="TESTING.md"><img alt="Testing" src="https://img.shields.io/badge/testing-checklist-8957e5?style=for-the-badge"></a>
-  <a href="package.json"><img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D24-339933?style=for-the-badge&logo=node.js&logoColor=white"></a>
 </p>
 
 <p>
@@ -66,7 +65,7 @@ tracebase import
 tracebase serve
 ```
 
-Open `http://127.0.0.1:7331`.
+Open `http://127.0.0.1:18427`.
 
 The npm package is `tracebase-local`; it installs `tracebase`, `traces`, `tcodex`, and `tclaude`.
 
@@ -112,7 +111,7 @@ Set `TRACE_KEY` to a base64-encoded 32-byte key only when you need to manage enc
 | Print Claude bootstrap instructions | `tracebase bootstrap --agent claude` |
 | Write agent instructions | `tracebase install-instructions --agent codex --target ./TRACEBASE_AGENT.md` |
 | Always-on macOS capture | `tracebase watch-install` then `tracebase watch-status` |
-| Live local intake | `tracebase agent --port 7331` |
+| Live local intake | `tracebase agent --port 18427` |
 | Check capture health | `tracebase health` and `tracebase doctor` |
 | Export a redacted bundle | `tracebase export --session-id ID --out trace.zip` |
 | Pipe an export intentionally | `tracebase export --session-id ID --stdout > trace.zip` |

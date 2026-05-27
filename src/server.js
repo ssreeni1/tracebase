@@ -503,7 +503,7 @@ function isLoopbackHost(host) {
 }
 
 function listen(options = {}) {
-  const port = Number(options.port || process.env.PORT || 7331);
+  const port = Number(options.port || process.env.PORT || 18427);
   const host = options.host || "127.0.0.1";
   const allowRemote = Boolean(options.allowRemote || process.env.TRACEBASE_ALLOW_REMOTE === "1");
   if (!isLoopbackHost(host) && !allowRemote) {

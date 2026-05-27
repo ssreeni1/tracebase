@@ -57,10 +57,10 @@ Expected:
 
 ```sh
 npm run build
-node bin/tracebase.js serve --port 7331
+node bin/tracebase.js serve --port 18427
 ```
 
-Open `http://127.0.0.1:7331`.
+Open `http://127.0.0.1:18427`.
 
 Check:
 
@@ -74,10 +74,10 @@ Check:
 Useful API probes:
 
 ```sh
-curl -s http://127.0.0.1:7331/api/health
-curl -s http://127.0.0.1:7331/api/sessions?limit=5
-curl -s http://127.0.0.1:7331/api/events?limit=5
-curl -s http://127.0.0.1:7331/api/summary-runners
+curl -s http://127.0.0.1:18427/api/health
+curl -s http://127.0.0.1:18427/api/sessions?limit=5
+curl -s http://127.0.0.1:18427/api/events?limit=5
+curl -s http://127.0.0.1:18427/api/summary-runners
 ```
 
 Expected security defaults:
@@ -90,13 +90,13 @@ Expected security defaults:
 
 ```sh
 export TRACE_HOME="$(mktemp -d)"
-node bin/tracebase.js agent --port 7331
+node bin/tracebase.js agent --port 18427
 ```
 
 In another terminal:
 
 ```sh
-curl -s http://127.0.0.1:7331/api/events \
+curl -s http://127.0.0.1:18427/api/events \
   -H 'content-type: application/json' \
   -d '{"id":"manual-event-1","provider":"test","session_id":"manual-session","type":"note","message":"manual intake works"}'
 ```
@@ -105,7 +105,7 @@ Then verify:
 
 ```sh
 node bin/tracebase.js search "manual intake"
-curl -s "http://127.0.0.1:7331/api/events?q=manual%20intake"
+curl -s "http://127.0.0.1:18427/api/events?q=manual%20intake"
 ```
 
 Expected:
@@ -130,7 +130,7 @@ node bin/tracebase.js export --session-id SESSION_ID --raw --out tracebase-raw-e
 HTTP raw export requires an explicit header:
 
 ```sh
-curl -fL "http://127.0.0.1:7331/api/export?sessionId=SESSION_ID&raw=1" \
+curl -fL "http://127.0.0.1:18427/api/export?sessionId=SESSION_ID&raw=1" \
   -H 'x-tracebase-raw-export: 1' \
   -o tracebase-raw-export.zip
 ```
@@ -147,8 +147,8 @@ Expected:
 ```sh
 node bin/tracebase.js analyze --session-id SESSION_ID
 node bin/tracebase.js costs --session-id SESSION_ID
-curl -s "http://127.0.0.1:7331/api/costs?sessionId=SESSION_ID"
-curl -s "http://127.0.0.1:7331/api/trace-diff?sessionId=SESSION_ID"
+curl -s "http://127.0.0.1:18427/api/costs?sessionId=SESSION_ID"
+curl -s "http://127.0.0.1:18427/api/trace-diff?sessionId=SESSION_ID"
 node bin/tracebase.js run-compare --base-session-id BASE --target-session-id TARGET
 ```
 
@@ -163,7 +163,7 @@ Expected:
 
 ```sh
 node bin/tracebase.js doctor
-curl -s http://127.0.0.1:7331/api/summary-runners
+curl -s http://127.0.0.1:18427/api/summary-runners
 ```
 
 For real summaries, use an existing session id:
@@ -190,19 +190,19 @@ npm audit --omit=dev
 Remote bind should fail without explicit opt-in:
 
 ```sh
-node bin/tracebase.js serve --host 0.0.0.0 --port 7331
+node bin/tracebase.js serve --host 0.0.0.0 --port 18427
 ```
 
 Raw blob API should fail by default:
 
 ```sh
-curl -i http://127.0.0.1:7331/api/blob/SOME_BLOB_ID
+curl -i http://127.0.0.1:18427/api/blob/SOME_BLOB_ID
 ```
 
 Cross-origin state-changing requests should fail:
 
 ```sh
-curl -i http://127.0.0.1:7331/api/events \
+curl -i http://127.0.0.1:18427/api/events \
   -H 'content-type: application/json' \
   -H 'origin: https://example.com' \
   -d '{"id":"blocked","provider":"test","session_id":"blocked"}'
